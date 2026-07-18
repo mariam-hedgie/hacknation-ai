@@ -1,20 +1,12 @@
-const apiKey = process.env.ELEVENLABS_API_KEY;
+import { checkElevenLabsCredential } from "./elevenlabs-check-lib.mjs";
 
-if (!apiKey || apiKey.startsWith("TODO_")) {
-  console.error(
-    "ELEVENLABS_API_KEY is not configured. Add your key to the local .env file, then run npm run check:elevenlabs."
-  );
-  process.exit(1);
-}
-
-const response = await fetch("https://api.elevenlabs.io/v1/user", {
-  headers: { "xi-api-key": apiKey },
+const result = await checkElevenLabsCredential({
+  apiKey: process.env.ELEVENLABS_API_KEY,
 });
 
-if (!response.ok) {
-  console.error(`ElevenLabs credential check failed: ${response.status} ${response.statusText}`);
-  process.exit(1);
+if (result.ok) {
+  console.log(result.message);
+} else {
+  console.error(result.message);
+  process.exitCode = 1;
 }
-
-const user = await response.json();
-console.log(`ElevenLabs credential check: OK (${user.subscription?.tier ?? "account verified"})`);

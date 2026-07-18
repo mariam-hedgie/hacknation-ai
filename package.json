@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:elevenlabs": "node --env-file=.env scripts/check-elevenlabs.mjs"
+    "check:elevenlabs": "node --env-file=.env scripts/check-elevenlabs.mjs",
+    "test": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "@elevenlabs/client": "^1.15.1",

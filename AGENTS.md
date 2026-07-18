@@ -34,6 +34,11 @@ For the final 15-hour build sequence, feature truth labels, mapping provider
 choice, and agent-wave handoffs, follow
 [`docs/overnight-agent-runbook.md`](docs/overnight-agent-runbook.md).
 
+For UI implementation or a Claude design pass, use
+[`docs/ui-handoff.md`](docs/ui-handoff.md). Preserve its patient-first action
+hierarchy, exact uncertainty wording, mobile/accessibility constraints, and
+thin-client boundary; UI code must not invent ranking or evidence claims.
+
 ## What Hack-Nation appears to reward
 
 Build a working, focused AI product rather than a broad "AI assistant." The
