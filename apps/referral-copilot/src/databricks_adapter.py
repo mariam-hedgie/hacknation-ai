@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Mapping, MutableMapping, Protocol, Sequence
 
 from .domain import EvidenceStatus, FacilityCandidate, evidence_status
+from .maps import validate_coordinates
 
 
 class ConfigurationError(ValueError):
@@ -83,7 +84,7 @@ SELECT
     e.capability,
     t.data_status,
     t.contradiction_flag,
-    f.distance_km,
+    CAST(NULL AS DOUBLE) AS distance_km,
     f.facility_type,
     t.missing_fields,
     e.literal_source_text,
@@ -95,6 +96,59 @@ JOIN facility_claims_evidence AS e ON e.facility_id = f.facility_id
 LEFT JOIN facility_trust_assessment AS t
     ON t.facility_id = e.facility_id AND t.capability = e.capability
 WHERE e.capability = ?
+LIMIT ?
+""".strip()
+
+
+_NEARBY_FACILITY_QUERY = """
+WITH matched AS (
+  SELECT
+    f.facility_id,
+    f.display_name,
+    e.capability,
+    t.data_status,
+    t.contradiction_flag,
+    6371 * 2 * asin(
+      sqrt(
+        pow(sin((radians(f.lat) - radians(?)) / 2), 2)
+        + cos(radians(?)) * cos(radians(f.lat))
+        * pow(sin((radians(f.lon) - radians(?)) / 2), 2)
+      )
+    ) AS distance_km,
+    f.facility_type,
+    t.missing_fields,
+    e.literal_source_text,
+    e.cited_span,
+    e.source_column,
+    e.source_row_id,
+    row_number() OVER (
+      PARTITION BY f.facility_id
+      ORDER BY t.corroboration_count DESC, e.source_column, e.evidence_id
+    ) AS evidence_rank
+  FROM facilities_normalized AS f
+  JOIN facility_claims_evidence AS e ON e.facility_id = f.facility_id
+  LEFT JOIN facility_trust_assessment AS t
+    ON t.facility_id = e.facility_id AND t.capability = e.capability
+  WHERE f.lat IS NOT NULL
+    AND f.lon IS NOT NULL
+    AND e.capability = ?
+)
+SELECT
+  facility_id,
+  display_name,
+  capability,
+  data_status,
+  contradiction_flag,
+  distance_km,
+  facility_type,
+  missing_fields,
+  literal_source_text,
+  cited_span,
+  source_column,
+  source_row_id
+FROM matched
+WHERE evidence_rank = 1
+ORDER BY distance_km, display_name
 LIMIT ?
 """.strip()
 
@@ -192,6 +246,41 @@ class DatabricksFacilityRepository:
             candidates=tuple(_translate_row(row) for row in rows),
             connected=True,
             message="Facility candidates loaded from Databricks evidence tables.",
+        )
+
+    def find_by_capability_near(
+        self,
+        capability: str,
+        *,
+        origin: Sequence[object],
+        limit: int = 20,
+    ) -> FacilityQueryResult:
+        """Return source-backed candidates ordered by straight-line distance.
+
+        The distance is a geodesic estimate between valid coordinates, not a
+        road route, travel time, fare, or statement of current availability.
+        """
+
+        if self._executor is None:
+            return FacilityQueryResult(
+                candidates=(),
+                connected=False,
+                message="Databricks is not configured; no live facility claims were queried.",
+            )
+        latitude, longitude = validate_coordinates(origin)
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer from 1 to 100")
+        rows = self._executor.execute(
+            _NEARBY_FACILITY_QUERY,
+            (latitude, latitude, longitude, capability, limit),
+        )
+        return FacilityQueryResult(
+            candidates=tuple(_translate_row(row) for row in rows),
+            connected=True,
+            message=(
+                "Facility candidates loaded from Databricks evidence tables; "
+                "distance is a straight-line coordinate estimate."
+            ),
         )
 
 

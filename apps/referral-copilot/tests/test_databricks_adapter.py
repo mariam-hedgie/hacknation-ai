@@ -100,6 +100,31 @@ class FacilityRepositoryTests(unittest.TestCase):
         self.assertIn("LIMIT ?", statement)
         self.assertEqual(parameters, (user_input, 7))
 
+    def test_nearby_query_calculates_distance_from_validated_origin(self) -> None:
+        executor = RecordingExecutor()
+        repository = DatabricksFacilityRepository(executor)
+
+        repository.find_by_capability_near(
+            "dialysis' OR 1=1 --",
+            origin=(25.5941, 85.1376),
+            limit=5,
+        )
+
+        statement, parameters = executor.calls[0]
+        self.assertNotIn("dialysis' OR 1=1 --", statement)
+        self.assertIn("AS distance_km", statement)
+        self.assertIn("ORDER BY distance_km", statement)
+        self.assertEqual(parameters, (25.5941, 25.5941, 85.1376, "dialysis' OR 1=1 --", 5))
+
+    def test_nearby_query_rejects_invalid_coordinates_before_sql(self) -> None:
+        executor = RecordingExecutor()
+        repository = DatabricksFacilityRepository(executor)
+
+        with self.assertRaises(ValueError):
+            repository.find_by_capability_near("dialysis", origin=(1000, 85))
+
+        self.assertEqual(executor.calls, [])
+
     def test_row_translation_preserves_evidence_missing_fields_and_source_span(self) -> None:
         executor = RecordingExecutor(
             [

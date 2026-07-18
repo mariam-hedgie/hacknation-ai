@@ -12,6 +12,13 @@ working product context and
 [`docs/reference/data-legend-original-brief.pdf`](docs/reference/data-legend-original-brief.pdf)
 for the official source. If requirements, rubric, eligible technology, or
 scope are unclear or contested, read the PDF and follow it over any summary.
+Before declaring the project submission-ready, read
+[`docs/compliance/data-legend-official-brief-audit.md`](docs/compliance/data-legend-official-brief-audit.md)
+and complete every required item in
+[`docs/compliance/final-submission-gate.md`](docs/compliance/final-submission-gate.md).
+Local code, seeded cards, or a launched process are not proof of a live
+Free Edition deployment, real challenge-data evidence, Vector Search, or
+cross-session Lakebase persistence.
 
 The selected final product direction is documented in
 [`docs/final-product-plan.md`](docs/final-product-plan.md). Follow it for

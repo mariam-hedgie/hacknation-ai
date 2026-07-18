@@ -1,5 +1,11 @@
 # Handoff: Databricks team
 
+Executable repository-side pipeline files are indexed in
+[`../databricks/README.md`](../databricks/README.md). Run them in order and use
+[`compliance/final-submission-gate.md`](compliance/final-submission-gate.md) to
+record live workspace proof; the documents below are not substitutes for
+running the pipeline on the organizer dataset.
+
 ## Your mission
 
 Build and deploy **Aven**, the working Data Legend Referral Copilot, on Databricks.

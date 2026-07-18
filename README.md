@@ -91,12 +91,20 @@ Databricks deployment uses [`apps/referral-copilot/app.yaml`](apps/referral-copi
 The deployed App must run the exact tested Git commit and receive secrets and
 resources through Databricks Apps rather than source code.
 
+Run the lakehouse pipeline in [`databricks/README.md`](databricks/README.md).
+The repository implementation is not submission proof until every required
+item in the [official-brief compliance audit](docs/compliance/data-legend-official-brief-audit.md)
+and [final submission gate](docs/compliance/final-submission-gate.md) is
+verified in the team's Free Edition workspace.
+
 ## Build documentation
 
 - Shared agent rules: [`AGENTS.md`](AGENTS.md)
 - Final product behavior: [`docs/final-product-plan.md`](docs/final-product-plan.md)
 - Fifteen-hour execution: [`docs/overnight-agent-runbook.md`](docs/overnight-agent-runbook.md)
 - Testing evidence: [`docs/testing/aven-local-app.tdd.md`](docs/testing/aven-local-app.tdd.md)
+- Compliance-change tests: [`docs/testing/data-legend-compliance.tdd.md`](docs/testing/data-legend-compliance.tdd.md)
+- Official-brief audit: [`docs/compliance/data-legend-official-brief-audit.md`](docs/compliance/data-legend-official-brief-audit.md)
 
 ## Known boundaries
 

@@ -269,6 +269,8 @@ databricks/01_ingest_and_profile.sql
 databricks/02_build_evidence_tables.py
 databricks/03_build_trust_assessment.sql
 databricks/04_seed_evaluation_cases.sql
+databricks/05_vector_search_setup.md
+databricks/lakebase_schema.sql
 tests/
 docs/
 ```
