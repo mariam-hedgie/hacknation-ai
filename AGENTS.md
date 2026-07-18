@@ -4,6 +4,32 @@ This is the shared source of truth for every agent working in this repository.
 Keep the product focused, demoable, and honest. Update this file when a prompt,
 track, sponsor requirement, or product decision is confirmed.
 
+## Data Legend source material
+
+For the Databricks Data Legend track, use
+[`docs/data-legend-build-brief.md`](docs/data-legend-build-brief.md) for the
+working product context and
+[`docs/reference/data-legend-original-brief.pdf`](docs/reference/data-legend-original-brief.pdf)
+for the official source. If requirements, rubric, eligible technology, or
+scope are unclear or contested, read the PDF and follow it over any summary.
+
+The selected final product direction is documented in
+[`docs/final-product-plan.md`](docs/final-product-plan.md). Follow it for
+feature priorities, conversational-intake guardrails, and the patient-facing
+experience; defer to the original PDF if it conflicts with the challenge.
+The public product name is **Aven**; use it in user-facing copy, pitch,
+screens, and documentation. Keep technical deployment identifiers separate
+unless a deployment naming decision is explicitly confirmed.
+
+Use [`docs/databricks-execution-plan.md`](docs/databricks-execution-plan.md)
+for the Databricks implementation sequence, data contracts, deployment gates,
+and GitHub-to-Databricks synchronization rules. Do not commit challenge data,
+patient data, or credentials.
+
+Hand the Databricks owners [`docs/databricks-team-handoff.md`](docs/databricks-team-handoff.md).
+It contains their platform setup steps, owned deliverables, app skeleton,
+data contracts, and integration handoff to the rest of the team.
+
 ## What Hack-Nation appears to reward
 
 Build a working, focused AI product rather than a broad "AI assistant." The
