@@ -1,0 +1,13 @@
+{
+  "name": "hacknation-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:elevenlabs": "node --env-file=.env scripts/check-elevenlabs.mjs"
+  },
+  "dependencies": {
+    "@elevenlabs/client": "^1.15.1",
+    "@tavily/core": "^0.7.1"
+  }
+}

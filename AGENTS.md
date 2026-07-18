@@ -52,6 +52,31 @@ Choose a track/idea only if it has all or nearly all of the following:
 - A useful edge such as verification, personalization, multimodal input, or
   action-taking.
 
+## Track-selection strategy: competitive, not merely interesting
+
+Prefer the track with the **lowest expected competition where this team has a
+real advantage**. Do not choose a track only because it is familiar or has a
+large sponsor name.
+
+For each track, score the following before committing:
+
+| Factor | What to prefer |
+|---|---|
+| Expected participation | Fewer confirmed teams or lower visible hype; use organizer data where available, otherwise label this as an estimate. |
+| Team advantage | A domain insight, relevant technical skill, credible demo data, or a notably stronger ability to execute the sponsor stack. |
+| Buildability | A complete, reliable demo within the sprint—not a research project. |
+| Distinctiveness | A solution unlikely to converge on the obvious chatbot/dashboard most teams will build. |
+| Sponsor fit | A use of the sponsor technology that is necessary and easy for judges to recognize. |
+
+Use this decision rule: choose the track with the best combined score for
+**team advantage + buildability + distinctiveness**, then break close ties in
+favor of lower expected participation. Never invent team counts: record the
+source if an organizer provides them, or explicitly mark the assessment as a
+proxy (for example, Discord activity, waitlist interest, or prompt breadth).
+
+Avoid overcrowded tracks unless the team has an unusually strong, concrete
+edge that can be demonstrated immediately.
+
 Before implementation, write and agree on this sentence:
 
 > For [specific user], we turn [painful input] into [specific decision/action]
@@ -83,6 +108,74 @@ Pitch structure:
 > [input] into [verified actionable output]. The AI does [specific nontrivial
 > task], while [guardrail] keeps the user in control. This can scale because
 > [short reason].
+
+## Required decision checkpoint: trusted AI workflow
+
+After every meaningful product choice (track, problem, user, input, AI
+capability, evidence source, action, or demo flow), the agent must pause and
+show how that choice fits this lightweight workflow:
+
+`user input -> AI reasoning with evidence -> recommendation -> user feedback/approval -> trusted action`
+
+The agent must explicitly ask the user to confirm or adjust the choice before
+making the next dependent decision. Keep this checkpoint concise and include:
+
+- **Trace:** what will be recorded for this AI decision (input, output,
+  sources/tools, confidence, and final user action).
+- **Feedback:** how a user can mark the result helpful/incorrect and provide a
+  correction when relevant.
+- **Evaluation:** which 5–10 seeded cases will test accuracy, evidence quality,
+  safety, usefulness, and actionability.
+- **Guardrail:** what explanation, uncertainty label, and approval step keeps
+  the user in control.
+
+For the hackathon, implement this as a lightweight in-product activity/evidence
+panel plus feedback controls and deterministic sample cases. Do **not** spend
+time adopting MLflow, Unity Catalog, or a full observability platform unless a
+sponsor track explicitly requires it.
+
+## Tavily: web evidence for agent workflows
+
+Tavily is installed as the project's agent-oriented web research SDK
+(`@tavily/core`). Use it only when the product needs current, public web
+evidence that is not already present in the challenge dataset or a user-provided
+source.
+
+Use the smallest suitable endpoint:
+
+- **Search:** discover current, public sources for a focused factual question.
+- **Extract:** retrieve clean content from a known relevant URL.
+- **Map or crawl:** only for a narrowly scoped, public official domain when the
+  workflow needs more than one page; set a clear page/domain limit first.
+- **Research:** only for a deliberate, multi-source research task where a
+  short, attributable synthesis is the user-facing outcome.
+
+For Data Legend, Tavily may cross-check a facility's supplied public source URL
+or an official standard; it must never replace the dataset's row-level evidence.
+Clearly label external evidence with its URL and retrieval time. If sources
+conflict or evidence is absent, lower confidence or return an explicit
+"unknown" state instead of inferring a capability.
+
+Do not send personal data, application documents, credentials, private URLs,
+or raw health information to Tavily. Do not use it to infer eligibility,
+protected traits, medical treatment, or a fact that requires a primary source
+you have not obtained. Prefer a basic/fast search for routine checks and use
+advanced search only when the expected evidence gain justifies the extra credit.
+
+Configuration: each developer creates a local `.env` from `.env.example` and
+sets `TAVILY_API_KEY`. Never commit a real API key. The Hack-Nation guide says
+the free account includes 1,000 monthly credits and the event code
+`HackNationJuly` redeems the Project plan for two months; confirm availability
+in the Tavily dashboard before relying on it.
+
+## ElevenLabs: voice intake, not hidden decision-making
+
+Use ElevenLabs only for an explicit, user-facing voice interaction: collect a
+planner's spoken request, present an accessible spoken summary, or conduct the
+voice negotiation flow required by the ElevenLabs challenge. The user must be
+able to review and correct the structured information produced from speech
+before it drives a search, ranking, or action. Keep `ELEVENLABS_API_KEY` on the
+server; never embed it in client code or commit it to the repository.
 
 ## Suggested team ownership
 
