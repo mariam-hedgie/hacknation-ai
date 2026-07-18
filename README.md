@@ -105,6 +105,8 @@ verified in the team's Free Edition workspace.
 - Testing evidence: [`docs/testing/aven-local-app.tdd.md`](docs/testing/aven-local-app.tdd.md)
 - Compliance-change tests: [`docs/testing/data-legend-compliance.tdd.md`](docs/testing/data-legend-compliance.tdd.md)
 - Official-brief audit: [`docs/compliance/data-legend-official-brief-audit.md`](docs/compliance/data-legend-official-brief-audit.md)
+- Login and persistence security: [`docs/security/login-and-persistence-audit.md`](docs/security/login-and-persistence-audit.md)
+- Login/persistence test evidence: [`docs/testing/login-persistence-security.tdd.md`](docs/testing/login-persistence-security.tdd.md)
 
 ## Known boundaries
 

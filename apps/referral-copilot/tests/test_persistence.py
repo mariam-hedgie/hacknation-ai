@@ -26,6 +26,12 @@ class InMemoryPostgresExecutor:
     def execute(self, statement: str, parameters: tuple[object, ...]):
         self.calls.append((statement, parameters))
         normalised = " ".join(statement.split()).casefold()
+        if normalised.startswith("insert into") and "access_feedback" in normalised:
+            owner_id, plan_id, payload, lookup_owner, lookup_plan = map(str, parameters)
+            if (lookup_owner, lookup_plan) not in self.plans:
+                return []
+            self.feedback.append((owner_id, plan_id, payload))
+            return [{"feedback_id": len(self.feedback)}]
         if normalised.startswith("insert into") and "saved_care_plans" in normalised:
             owner_id, plan_id, payload = map(str, parameters)
             self.plans[(owner_id, plan_id)] = payload
@@ -34,12 +40,6 @@ class InMemoryPostgresExecutor:
             owner_id, plan_id = map(str, parameters)
             payload = self.plans.get((owner_id, plan_id))
             return [] if payload is None else [{"payload": payload}]
-        if normalised.startswith("insert into") and "access_feedback" in normalised:
-            owner_id, plan_id, payload, lookup_owner, lookup_plan = map(str, parameters)
-            if (lookup_owner, lookup_plan) not in self.plans:
-                return []
-            self.feedback.append((owner_id, plan_id, payload))
-            return [{"feedback_id": len(self.feedback)}]
         if normalised.startswith("select feedback_payload"):
             owner_id, plan_id = map(str, parameters)
             return [
@@ -118,6 +118,11 @@ class PersistentPlanStoreTests(unittest.TestCase):
                     "location": "home address",
                 },
                 "selected_facility_id": "pharmacy-1",
+                "selected_option": {
+                    "facility": "Demo Pharmacy",
+                    "transcript": "Please refill metformin",
+                    "metadata": {"email": "mariam@example.com", "evidence": "row-1"},
+                },
                 "next_steps": ["Call to confirm"],
             }
         )
@@ -127,6 +132,10 @@ class PersistentPlanStoreTests(unittest.TestCase):
             {
                 "plan_id": "plan-minimal",
                 "selected_facility_id": "pharmacy-1",
+                "selected_option": {
+                    "facility": "Demo Pharmacy",
+                    "metadata": {"evidence": "row-1"},
+                },
                 "next_steps": ["Call to confirm"],
             },
         )

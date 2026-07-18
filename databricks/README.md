@@ -18,6 +18,11 @@ the final app:
 7. Run `lakebase_schema.sql` in the Lakebase SQL editor, not the lakehouse SQL
    editor.
 
+Before wiring login or saved state, complete
+[`../docs/security/login-and-persistence-audit.md`](../docs/security/login-and-persistence-audit.md).
+The App must use Databricks OAuth identity, a secret-backed pseudonymous owner,
+and the owner-scoped schema; never use the legacy plan-ID-only table.
+
 Do not call the pipeline complete until the output checks at the bottom of each
 file pass on the provided 10,000-record dataset. A code file in GitHub is not
 proof that its corresponding Databricks table exists.

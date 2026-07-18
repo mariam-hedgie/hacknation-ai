@@ -19,6 +19,11 @@ and complete every required item in
 Local code, seeded cards, or a launched process are not proof of a live
 Free Edition deployment, real challenge-data evidence, Vector Search, or
 cross-session Lakebase persistence.
+For any login, identity, saved-plan, note, or feedback work, also follow
+[`docs/security/login-and-persistence-audit.md`](docs/security/login-and-persistence-audit.md).
+Never accept an owner ID from the browser, persist raw Databricks identity/email
+or health intake, or query Lakebase by `plan_id` without the authenticated
+pseudonymous `owner_id`.
 
 The selected final product direction is documented in
 [`docs/final-product-plan.md`](docs/final-product-plan.md). Follow it for

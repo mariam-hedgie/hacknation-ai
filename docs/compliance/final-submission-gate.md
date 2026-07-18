@@ -14,6 +14,8 @@ replace a missing check with “code exists.”
 - [ ] Vector Search index attached and live retrieval revalidates literal spans.
 - [ ] Lakebase Autoscaling resource attached.
 - [ ] Save -> fresh browser/new session -> reopen test passes.
+- [ ] Databricks OAuth/CAN USE access and owner isolation pass every check in
+  `docs/security/login-and-persistence-audit.md`.
 - [ ] Facility results are challenge-data results, not silently seeded demo cards.
 - [ ] Demo and persisted Lakebase rows contain no real patient/health data.
 - [ ] Each shortlisted facility shows distance, evidence, gaps, and save action.
