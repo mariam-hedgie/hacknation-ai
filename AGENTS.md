@@ -30,6 +30,10 @@ Hand the Databricks owners [`docs/databricks-team-handoff.md`](docs/databricks-t
 It contains their platform setup steps, owned deliverables, app skeleton,
 data contracts, and integration handoff to the rest of the team.
 
+For the final 15-hour build sequence, feature truth labels, mapping provider
+choice, and agent-wave handoffs, follow
+[`docs/overnight-agent-runbook.md`](docs/overnight-agent-runbook.md).
+
 ## What Hack-Nation appears to reward
 
 Build a working, focused AI product rather than a broad "AI assistant." The
