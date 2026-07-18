@@ -14,6 +14,7 @@ CARE_TASKS = {
     "known_referral": "Referral, specialty, or procedure",
     "refill": "Medication refill or pharmacy",
     "lab": "Lab test or blood draw",
+    "vaccination": "Vaccination or immunization",
     "symptom_first": "I am not sure what care I need",
     "follow_up": "Follow-up or appointment question",
 }
@@ -23,6 +24,7 @@ TASK_QUESTIONS = {
     "known_referral": "What specialty, procedure, or care need did your doctor write down?",
     "refill": "What medicine and formulation do you need refilled?",
     "lab": "What test or blood draw did your clinician request?",
+    "vaccination": "Which vaccine or immunization are you planning for?",
     "symptom_first": "What is worrying you today? We can help plan a possible next care step, not diagnose it.",
     "follow_up": "Which facility or doctor are you trying to reach?",
 }

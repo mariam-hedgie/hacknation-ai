@@ -117,6 +117,9 @@ FEATURE_TILES = [
     {"key": "lab", "icon": "🧪", "title": "Lab or blood test",
      "desc": "Locate a facility for a test or blood draw your clinician requested.",
      "detail_label": "What test or blood draw was requested?"},
+    {"key": "vaccination", "icon": "💉", "title": "Vaccination",
+     "desc": "Find where to get a vaccine or routine immunization.",
+     "detail_label": "Which vaccine or immunization are you planning for?"},
     {"key": "follow_up", "icon": "📅", "title": "Follow-up question",
      "desc": "Reconnect with a facility or doctor about an appointment.",
      "detail_label": "Which facility or doctor are you trying to reach?"},
@@ -342,26 +345,17 @@ def show_tiles() -> None:
         unsafe_allow_html=True,
     )
 
-    tiles = list(FEATURE_TILES)
-    if st.session_state.saved_plans:
-        tiles.append({"key": "__saved", "icon": "📁", "title": "My saved plans",
-                      "desc": f"Reopen the {len(st.session_state.saved_plans)} route(s) you saved this session."})
-
-    # Render tiles as a real button grid. Each button's parent gets a
-    # `st-key-tile_*` class from Streamlit, which the CSS targets to style the
-    # button as a large, hoverable card while keeping full session state.
-    for row_start in range(0, len(tiles), 3):
-        row = tiles[row_start:row_start + 3]
+    # Six forms render as a neat 3-wide grid (two rows). Each button's parent
+    # gets a `st-key-tile_*` class from Streamlit, which the CSS targets to style
+    # the button as a large, hoverable card while keeping full session state.
+    # (Saved plans are reachable from the header and profile, not this grid.)
+    for row_start in range(0, len(FEATURE_TILES), 3):
+        row = FEATURE_TILES[row_start:row_start + 3]
         cols = st.columns(3)
         for col, tile in zip(cols, row):
-            cta = "Open plans →" if tile["key"] == "__saved" else "Open form →"
-            label = f"{tile['icon']}\n\n**{tile['title']}**\n\n{tile['desc']}\n\n{cta}"
+            label = f"{tile['icon']}\n\n**{tile['title']}**\n\n{tile['desc']}\n\nOpen form →"
             if col.button(label, key=f"tile_{tile['key']}", use_container_width=True):
-                if tile["key"] == "__saved":
-                    st.session_state.stage = "results"
-                    st.rerun()
-                else:
-                    go_to_intake(tile["key"])
+                go_to_intake(tile["key"])
 
 
 def show_flow_header() -> None:
