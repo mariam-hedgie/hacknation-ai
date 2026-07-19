@@ -11,13 +11,36 @@ from typing import Any
 
 from .config import BackendConfig
 
+from databricks.ai_search import VectorSearchClient as DBVectorSearchClient
+
 
 class VectorSearchClient:
     def __init__(self, config: BackendConfig) -> None:
         self._config = config
 
+        self._client = DBVectorSearchClient(
+            workspace_url=config.workspace_url,
+            personal_access_token=config.databricks_token,
+        )
+
+        self._index = self._client.get_index(
+            endpoint_name=config.vector_search_endpoint,
+            index_name=config.vector_search_index,
+        )
+
     def available(self) -> bool:
         return self._config.has_vector_search
+    
+    def _rows_from_results(self, results) -> list[dict[str, Any]]:
+      rows = []
+
+      manifest = results["manifest"]
+      cols = [c["name"] for c in manifest["columns"]]
+
+      for row in results["result"]["data_array"]:
+          rows.append(dict(zip(cols, row)))
+
+      return rows
 
     def retrieve(self, capability: str, location: str | None, *, k: int = 20) -> list[dict[str, Any]] | None:
         """Return up to `k` candidate rows, or None if retrieval is unavailable.
@@ -32,6 +55,22 @@ class VectorSearchClient:
         """
         if not self.available():
             return None
+        
+        results = self._index.similarity_search(
+            query_text=f"{capability} near {location}",
+            num_results=k,
+            columns=[
+                "unique_id",
+                "name",
+                "specialties",
+                "capabilities",
+                "procedures",
+                "equipment",
+                "facility_facts",
+                "data_quality"
+            ],
+        )
+
         # from databricks.vector_search.client import VectorSearchClient as VSClient
         # index = VSClient().get_index(self._config.vector_search_endpoint,
         #                              self._config.vector_search_index)
@@ -39,4 +78,4 @@ class VectorSearchClient:
         #     columns=["facility_id", "display_name", "capability", "procedure",
         #              "equipment", "description", "source_url", "latitude", "longitude"])
         # return _rows_from(results)
-        return None  # not implemented yet -> service uses demo fallback
+        return self._rows_from_results(results)  # not implemented yet -> service uses demo fallback
