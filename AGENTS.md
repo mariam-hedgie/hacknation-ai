@@ -12,6 +12,18 @@ working product context and
 [`docs/reference/data-legend-original-brief.pdf`](docs/reference/data-legend-original-brief.pdf)
 for the official source. If requirements, rubric, eligible technology, or
 scope are unclear or contested, read the PDF and follow it over any summary.
+Before declaring the project submission-ready, read
+[`docs/compliance/data-legend-official-brief-audit.md`](docs/compliance/data-legend-official-brief-audit.md)
+and complete every required item in
+[`docs/compliance/final-submission-gate.md`](docs/compliance/final-submission-gate.md).
+Local code, seeded cards, or a launched process are not proof of a live
+Free Edition deployment, real challenge-data evidence, Vector Search, or
+cross-session Lakebase persistence.
+For any login, identity, saved-plan, note, or feedback work, also follow
+[`docs/security/login-and-persistence-audit.md`](docs/security/login-and-persistence-audit.md).
+Never accept an owner ID from the browser, persist raw Databricks identity/email
+or health intake, or query Lakebase by `plan_id` without the authenticated
+pseudonymous `owner_id`.
 
 The selected final product direction is documented in
 [`docs/final-product-plan.md`](docs/final-product-plan.md). Follow it for
@@ -29,6 +41,15 @@ patient data, or credentials.
 Hand the Databricks owners [`docs/databricks-team-handoff.md`](docs/databricks-team-handoff.md).
 It contains their platform setup steps, owned deliverables, app skeleton,
 data contracts, and integration handoff to the rest of the team.
+
+For the final 15-hour build sequence, feature truth labels, mapping provider
+choice, and agent-wave handoffs, follow
+[`docs/overnight-agent-runbook.md`](docs/overnight-agent-runbook.md).
+
+For UI implementation or a Claude design pass, use
+[`docs/ui-handoff.md`](docs/ui-handoff.md). Preserve its patient-first action
+hierarchy, exact uncertainty wording, mobile/accessibility constraints, and
+thin-client boundary; UI code must not invent ranking or evidence claims.
 
 ## What Hack-Nation appears to reward
 

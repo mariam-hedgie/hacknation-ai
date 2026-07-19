@@ -1,5 +1,11 @@
 node_modules/
+.venv/
 .env
 .env.local
 .env.*.local
+__pycache__/
+*.py[cod]
+.coverage
+htmlcov/
+.streamlit/secrets.toml
 .DS_Store
