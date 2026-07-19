@@ -11,7 +11,20 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Mapping
+
+try:  # pragma: no cover - optional local-dev convenience
+    from dotenv import load_dotenv
+
+    # A Databricks App injects env vars directly and has no .env file, so this
+    # is a no-op there. Locally, nothing else in this app ever loads .env
+    # (deliberately: Databricks Apps must not depend on one) — this is the one
+    # place that does, since every entry point (app.py, api.py, the standalone
+    # scripts) imports this module before touching any env-derived config.
+    load_dotenv(Path(__file__).resolve().parents[4] / ".env")
+except ImportError:
+    pass
 
 
 def _clean(value: str | None) -> str:

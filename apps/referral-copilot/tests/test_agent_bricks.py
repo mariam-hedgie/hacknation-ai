@@ -80,10 +80,16 @@ CONFLICTING_ROW = {
 
 
 class AvailabilityTests(unittest.TestCase):
-    def test_unavailable_without_serving_endpoint(self) -> None:
+    def test_available_without_a_serving_endpoint(self) -> None:
+        # assess_claims is a pure mapper (extraction already happened
+        # upstream) — it must not require AVEN_SERVING_ENDPOINT, since no live
+        # Vector Search + local-data setup ever sets one for a function that
+        # calls no serving endpoint.
         client = AgentBricksClient(BackendConfig())
-        self.assertFalse(client.available())
-        self.assertIsNone(client.assess_claims([RICH_ROW], capability="cardiology"))
+
+        self.assertTrue(client.available())
+        [candidate] = client.assess_claims([RICH_ROW], capability="cardiology")
+        self.assertEqual(candidate.facility_id, "patna-district-01")
 
 
 class MapperTests(unittest.TestCase):

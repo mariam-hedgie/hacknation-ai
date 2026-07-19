@@ -997,13 +997,24 @@ def show_option_card(index: int, option: dict) -> None:
 TRAVEL_MODES = ("walk", "bus", "train", "car", "taxi")
 
 
+def _evidence_pipeline_status() -> str:
+    """3-way, honest about data provenance: a live Databricks connection, a
+    real local snapshot (data/facilities_searchable.json, no live connection),
+    or fully seeded/fabricated demo content — never conflate the middle case
+    with either end."""
+    if backend.backend_mode() == "live":
+        return "Live Databricks evidence"
+    if backend.status().get("local_data"):
+        return "Real facility data (local snapshot) — not a live Databricks connection"
+    return "Seeded demo data — Vector Search and Agent Bricks are not connected"
+
+
 def show_system_status() -> None:
     """What is actually connected right now. Capability state only — the façade
     deliberately exposes no credentials or endpoint identifiers."""
     status = ui_backend().service_status()
     rows = [
-        ("Evidence pipeline", "Live Databricks evidence" if backend.backend_mode() == "live"
-         else "Seeded demo data — Vector Search and Agent Bricks are not connected"),
+        ("Evidence pipeline", _evidence_pipeline_status()),
         ("Routing provider", f"{status['map_provider']}"
          + (" (live)" if status["map_live_provider"] else " (offline estimates only)")),
         ("Facility database", f"Databricks SQL {status['databricks_mode']}"),
@@ -1035,13 +1046,21 @@ def show_results() -> None:
     st.markdown(f'<div class="aven-section-title">{tx("results_title")}</div>', unsafe_allow_html=True)
     st.caption(f"For: {request['capability']} · Starting from: {request['location']}")
 
-    if backend.backend_mode() == "demo":
-        st.markdown(
-            '<div class="aven-datasource-note">⚙️ Seeded demo data — the Databricks evidence pipeline '
-            '(Vector Search · Agent Bricks · Lakebase) is not connected in this environment. '
-            'Every option is labelled as a demo.</div>',
-            unsafe_allow_html=True,
-        )
+    if backend.backend_mode() != "live":
+        if backend.status().get("local_data"):
+            st.markdown(
+                '<div class="aven-datasource-note">📍 Real facility data from a local snapshot — '
+                'not a live Databricks connection. Evidence below is source-grounded, but confirm '
+                'anything time-sensitive (availability, hours, price) by phone.</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="aven-datasource-note">⚙️ Seeded demo data — the Databricks evidence pipeline '
+                '(Vector Search · Agent Bricks · Lakebase) is not connected in this environment. '
+                'Every option is labelled as a demo.</div>',
+                unsafe_allow_html=True,
+            )
 
     show_system_status()
 
@@ -1108,13 +1127,24 @@ def show_ask_data() -> None:
         "the query it ran — this is aggregate/coverage data, not a personal care plan."
     )
 
-    genie_available = backend.status().get("genie", False)
-    if not genie_available:
+    tool_status = backend.status()
+    genie_available = tool_status.get("genie", False)
+    local_ask_available = tool_status.get("local_ask", False)
+    ask_available = genie_available or local_ask_available
+    if genie_available:
+        pass
+    elif local_ask_available:
         st.markdown(
-            '<div class="aven-datasource-note">Genie is not connected in this environment '
-            "(no AVEN_GENIE_SPACE_ID / Databricks SQL warehouse configured), so this page can't "
-            "answer yet. Once wired, questions here get translated to SQL against the real facility "
-            "tables.</div>",
+            '<div class="aven-datasource-note">Genie is not connected in this environment, so questions are '
+            "answered against a local snapshot instead (data/facilities_searchable.json) — real facility "
+            "data, not a live Databricks connection.</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="aven-datasource-note">Neither Genie nor the local fallback is configured '
+            "(need AVEN_GENIE_SPACE_ID + a SQL warehouse, or OPENAI_API_KEY + a local data snapshot), "
+            "so this page can't answer yet.</div>",
             unsafe_allow_html=True,
         )
 
@@ -1123,13 +1153,13 @@ def show_ask_data() -> None:
             "Your question",
             placeholder="e.g. How many facilities near Patna document dialysis?",
         )
-        submitted = st.form_submit_button("Ask", type="primary", disabled=not genie_available)
+        submitted = st.form_submit_button("Ask", type="primary", disabled=not ask_available)
 
     if submitted and question.strip():
-        with st.spinner("Asking Genie…"):
+        with st.spinner("Asking Aven…"):
             result = backend.ask_data_question(question, conversation_id=st.session_state.ask_conversation_id)
         if result is None:
-            st.warning("Aven could not answer that — Genie may be unavailable or found nothing to say. Try rephrasing.")
+            st.warning("Aven could not answer that — try rephrasing, or asking about a specific capability/procedure.")
         else:
             st.session_state.ask_conversation_id = result.get("conversation_id")
             st.session_state.ask_history.append({"question": question, "result": result})
