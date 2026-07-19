@@ -16,7 +16,7 @@ enabled by key presence alone, and the UI lacked the new actions.
 
 ## GREEN
 
-`python3 -m unittest discover -s apps/referral-copilot/tests -q` passed 206
+`python3 -m unittest discover -s apps/referral-copilot/tests -q` passed 207
 tests. `coverage run --source=apps/referral-copilot/src ...` reported 86% total
 source coverage. `python3 -m compileall -q apps/referral-copilot` and
 `git diff --check` passed.
@@ -29,6 +29,7 @@ source coverage. `python3 -m compileall -q apps/referral-copilot` and
 | Missing phones are never invented and emergency 112 stays separate | `test_journey.AmbulancePlanTests` | safety | PASS |
 | Booking links come only from a fixed provider allowlist | `test_journey.TicketLinkTests` | security | PASS |
 | Deadline feasibility can outrank convenience among supported matches | `test_domain.ShortlistTests` | unit | PASS |
+| A tight deadline changes the visible seeded recommendation | `test_demo_logic.DemoLogicTests` | integration | PASS |
 | Voice stays hidden until explicitly enabled | `test_voice.VoiceTests` | configuration | PASS |
 | Date, route, ambulance, and booking actions remain in the UI | `test_ui_contract_alignment` | integration contract | PASS |
 

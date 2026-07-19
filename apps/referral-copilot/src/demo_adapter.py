@@ -7,9 +7,11 @@ that returns the same option shape once the platform tables are ready.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from .enrichment import normalize
+from .journey import demo_journey_estimate
 
 
 CARE_TASKS = {
@@ -84,7 +86,10 @@ _DEMO_ENRICHMENT: list[dict[str, Any]] = [
         },
     },
     {
-        "capabilities": [{"claim": "General outpatient consultation", "evidence": []}],
+        "capabilities": [
+            {"claim": "General outpatient consultation",
+             "evidence": ["Seeded demo record: “general outpatient clinic listed on weekdays”"]}
+        ],
         "procedures": [],
         "equipment": [],
         "specialties": ["General medicine"],
@@ -143,6 +148,8 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
             "ranking": f"Chosen because it is the strongest seeded evidence match. {public_note}{deadline_note}",
             "distance_km": 18,
             "ambulance_documented": True,
+            "evidence_status": "documented",
+            "available_after_days": 3,
         },
         {
             "label": "Lower-burden route",
@@ -156,6 +163,8 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
             "ranking": "Chosen as a seeded lower-burden alternative, not as a claim of lower clinical quality or cost." + deadline_note,
             "distance_km": 8,
             "ambulance_documented": False,
+            "evidence_status": "documented",
+            "available_after_days": 1,
         },
         {
             "label": "Alternative to verify",
@@ -169,8 +178,70 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
             "ranking": "Included to make uncertainty visible and preserve a user choice beyond the first recommendation." + deadline_note,
             "distance_km": 35,
             "ambulance_documented": False,
+            "evidence_status": "conflicting",
+            "available_after_days": 5,
         },
     ]
     for option, payload in zip(options, _DEMO_ENRICHMENT):
         option["enrichment"] = normalize(payload)
+    _rank_demo_journeys(options, request)
     return options
+
+
+def _rank_demo_journeys(options: list[dict[str, Any]], request: dict[str, Any]) -> None:
+    """Make the seeded ordering visibly react to the confirmed journey constraints."""
+
+    required = request.get("required_arrival_date")
+    if not required:
+        return
+    try:
+        days_available = max(0, (date.fromisoformat(str(required)) - date.today()).days)
+    except ValueError:
+        return
+
+    modes = tuple(request.get("travel_modes") or ("bus", "train"))
+    budget = request.get("travel_budget_rupees")
+    evidence_weight = {"documented": 1_000, "external_corroborated": 1_100, "conflicting": 200}
+
+    for option in options:
+        estimates = []
+        for mode in modes:
+            if mode == "plane":
+                continue
+            try:
+                estimates.append(demo_journey_estimate(option["distance_km"], mode))
+            except ValueError:
+                continue
+        if estimates:
+            within_budget = [
+                item for item in estimates
+                if not budget or item.cost_high_rupees <= int(budget)
+            ]
+            pool = within_budget or estimates
+            chosen = min(pool, key=lambda item: (item.duration_minutes, item.cost_high_rupees, item.mode))
+            option["recommended_mode"] = chosen.mode
+            option["estimated_journey_minutes"] = chosen.duration_minutes
+            option["estimated_travel_cost_rupees"] = chosen.cost_high_rupees
+
+        feasible = days_available >= int(option["available_after_days"])
+        option["arrival_feasible"] = feasible
+        score = evidence_weight.get(str(option["evidence_status"]), 0)
+        score += 500 if feasible else -2_000
+        if option.get("estimated_journey_minutes") is not None:
+            score -= round(int(option["estimated_journey_minutes"]) / 10)
+        if budget and option.get("estimated_travel_cost_rupees") is not None:
+            score += 100 if int(option["estimated_travel_cost_rupees"]) <= int(budget) else -300
+        option["plan_score"] = score
+        deadline_reason = (
+            f"The seeded journey can plausibly meet the requested arrival date {required}."
+            if feasible
+            else f"The seeded availability assumption may miss the requested arrival date {required}."
+        )
+        option["ranking"] = f"{option['ranking']} {deadline_reason}"
+
+    options.sort(
+        key=lambda option: (
+            -int(option.get("plan_score", 0)),
+            str(option["facility"]).casefold(),
+        )
+    )
