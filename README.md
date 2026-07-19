@@ -9,8 +9,9 @@ does not diagnose, prescribe, determine benefit eligibility, or promise price,
 stock, availability, outcomes, or crowd levels.
 
 The current repository contains a deterministic local vertical slice plus
-interfaces for Databricks, maps, persistence, multilingual text, and
-ElevenLabs. The seeded path stays usable when live services are unavailable.
+live, review-gated OpenAI intake structuring, ElevenLabs transcription, and
+Tavily public-source discovery when their server-side keys are configured.
+The seeded path stays usable when live services are unavailable.
 
 ## Golden-path demo
 
@@ -74,10 +75,53 @@ each result can search for public doctor, fee, contact, and official-source
 candidates. Aven sends only the facility name and confirmed service—not the
 patient narrative or location—and search results do not alter the ranking.
 
+### Configure OpenAI, ElevenLabs, and Tavily
+
+Put keys only in the repository-root `.env`; never paste them into the UI or
+commit them. Restart Streamlit after changing `.env`.
+
+```dotenv
+OPENAI_API_KEY=your_real_openai_key
+OPENAI_MODEL=gpt-5.6-sol
+ELEVENLABS_API_KEY=your_real_elevenlabs_key
+TAVILY_API_KEY=your_real_tavily_key
+```
+
+- **OpenAI:** “Structure with OpenAI” sends only the text in the intake box.
+  It returns a draft; the person must review and confirm every extracted field
+  before Aven searches or ranks. Aven does not send the model response history
+  to OpenAI storage (`store=False`).
+- **ElevenLabs:** create a restricted server key with Speech-to-Text access in
+  the ElevenLabs dashboard. The recording is sent only after explicit consent,
+  and the transcript returns to the editable intake box.
+- **Tavily:** create a key at <https://app.tavily.com>, add it as
+  `TAVILY_API_KEY`, restart the app, open a result, then choose **Contact,
+  phone, doctors, fees and public sources → Find contact & public sources**.
+  Aven sends only the facility name and confirmed service. It shows the source
+  link plus phone candidates found in the snippet; the user must verify a
+  number on the linked page before calling.
+
+### Accounts and saved plans
+
+- **Guest:** no account; plans last only for the current Streamlit session.
+- **Local demo profile:** a development-only device profile for exercising the
+  saved-plan UI. It is not production authentication.
+- **Databricks workspace account:** the intended deployed identity, supplied by
+  the Databricks App environment and used to scope persisted plans when the
+  approved storage path is connected.
+- **Google sign-in:** not implemented. It requires a separate OAuth client,
+  verified redirect URLs, token validation, and an approved account-linking
+  decision; an OpenAI or ElevenLabs key does not enable it.
+
+Open **My plans** in the top navigation at any time. Saved facilities retain
+the route summary and next action; past requests and blocked facilities appear
+on the same screen.
+
 ## Integration modes
 
 | Capability | Live mode | Safe fallback |
 |---|---|---|
+| Language structuring | OpenAI Responses API (`gpt-5.6-sol` by default) | Manual review form |
 | Facility evidence | Databricks SQL / governed tables | Seeded demo options labelled as demo |
 | Saved plans and feedback | Lakebase or approved Databricks write path | Current Streamlit session |
 | Maps/routes | Restricted Google Maps key | ORS road modes, then offline comparison labels |
@@ -85,7 +129,10 @@ patient narrative or location—and search results do not alter the ranking.
 | Public source discovery | Server-side Tavily key | No external lookup |
 | Languages | English, Hindi, Marathi UI strings | English with a visible fallback notice |
 
-Google supports the broadest planned routing experience. The free fallback
+Google Routes supports car, walking, bicycle, two-wheeler, and transit modes;
+bus and train use transit preferences. Taxi remains a road estimate rather
+than a quoted cab fare, and flights require a separate flight-data provider,
+so neither is presented as live Google Routes data. The free fallback
 must not claim live transit, taxi fares, flight prices, hotel availability, or
 real-time capacity. Map/Places facts are supplementary and never replace the
 challenge dataset's literal facility evidence.

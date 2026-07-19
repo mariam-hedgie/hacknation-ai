@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Mapping
@@ -30,8 +31,22 @@ class ExternalSourceCandidate:
     title: str
     url: str
     snippet: str
+    phone_numbers: tuple[str, ...]
     retrieved_at: str
     status: str = "external_source_candidate"
+
+
+_PHONE_CANDIDATE = re.compile(r"(?<!\w)(?:\+?\d[\d ()-]{6,}\d)")
+
+
+def _phone_numbers(text: str) -> tuple[str, ...]:
+    found: list[str] = []
+    for match in _PHONE_CANDIDATE.findall(text):
+        candidate = " ".join(match.strip().split())
+        digit_count = sum(character.isdigit() for character in candidate)
+        if 8 <= digit_count <= 15 and candidate not in found:
+            found.append(candidate)
+    return tuple(found[:3])
 
 
 def build_facility_query(facility: object, confirmed_capability: object) -> str:
@@ -65,11 +80,13 @@ def normalize_search_results(
             or any(character.isspace() or ord(character) < 32 for character in url)
         ):
             continue
+        snippet = " ".join(str(item.get("content") or "").split())[:600]
         normalized.append(
             ExternalSourceCandidate(
                 title=" ".join(str(item.get("title") or parsed.netloc).split())[:200],
                 url=url,
-                snippet=" ".join(str(item.get("content") or "").split())[:600],
+                snippet=snippet,
+                phone_numbers=_phone_numbers(snippet),
                 retrieved_at=retrieved_at,
             )
         )

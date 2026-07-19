@@ -35,6 +35,12 @@ from src.localization import (
     TRUST_LEVEL_KEYS,
     resolve_language,
 )
+from src.nlp import (
+    IntakeNlpConfigurationError,
+    IntakeNlpUnavailableError,
+    configured_nlp_client,
+    structure_intake,
+)
 from src.preferences import budget_fit, summarize_preferences
 from src.ui_contract import AvenUiBackend
 from src.voice import configured_voice_client, transcribe_for_review, VoiceUnavailableError
@@ -429,6 +435,8 @@ def initialize_state() -> None:
         "feedback": {},
         "language": "en",
         "draft_message": "",
+        "intake_message": "",
+        "nlp_draft": None,
         "preset_care_task": None,
         "user": None,  # None = guest; otherwise {"name", "email"}
         "profile": profiles.empty_profile(),
@@ -519,13 +527,11 @@ def show_header_bar() -> None:
     picker. Rendered with real Streamlit widgets inside a keyed container that
     CSS makes sticky and full-bleed."""
     with st.container(key="aven_header"):
-        has_saved = bool(st.session_state.saved_plans)
-        # brand | home | forms | [saved] | spacer | language | account
-        if has_saved:
-            widths = [1.5, 0.7, 0.9, 0.9, 0.5, 1.0, 1.0]
-        else:
-            widths = [1.7, 0.8, 1.0, 0.6, 1.1, 1.1]
-        cols = st.columns(widths, vertical_alignment="center")
+        # brand | home | forms | plans | spacer | language | account
+        cols = st.columns(
+            [1.5, 0.7, 0.9, 1.0, 0.45, 1.0, 1.0],
+            vertical_alignment="center",
+        )
         idx = 0
 
         with cols[idx]:
@@ -543,12 +549,11 @@ def show_header_bar() -> None:
                     if st.button(tile["title"], key=f"navform_{tile['key']}", use_container_width=True):
                         go_to_intake(tile["key"])
         idx += 1
-        if has_saved:
-            with cols[idx]:
-                if st.button("Saved", key="page_saved"):
-                    st.session_state.stage = "results"
-                    st.rerun()
-            idx += 1
+        with cols[idx]:
+            if st.button("My plans", key="page_saved"):
+                st.session_state.stage = "profile"
+                st.rerun()
+        idx += 1
 
         idx += 1  # skip the spacer column
         with cols[idx]:
@@ -592,10 +597,20 @@ def show_account_control() -> None:
                 do_logout()
     else:
         with st.popover("Account", use_container_width=True):
-            st.markdown("**Continue as a guest**")
-            st.caption("No account is required. In the deployed app, sign-in is provided by the Databricks workspace. Google sign-in is not configured yet.")
+            st.markdown("**Guest**")
+            st.caption(
+                "No account is required. Guest plans last only for this browser session."
+            )
+            st.markdown("**Deployed Databricks workspace account**")
+            st.caption(
+                "In the deployed app, Databricks signs you in before Aven opens. "
+                "That identity is used to isolate your saved plans; there is no separate Aven password."
+            )
             st.markdown("**Local demo profile**")
-            st.caption("This is not a real sign-up and should not be used with sensitive information.")
+            st.caption(
+                "For local testing only. It stores a demo profile on this device and is not a real signup. "
+                "Google sign-in is not configured. Do not enter sensitive information."
+            )
             name = st.text_input("Name", key="login_name", placeholder="Your name")
             email = st.text_input("Email", key="login_email", placeholder="you@example.com")
             if st.button("Use local demo profile", key="login_submit", type="primary", use_container_width=True):
@@ -616,6 +631,17 @@ def show_landing() -> None:
         f'<h1 class="aven-display">{BRAND_LABELS[ui_language()]}</h1>'
         f'<p class="aven-hero-sub">{tx("hero_sub")}</p>'
         f"</div></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="aven-home-proof-grid aven-reveal">'
+        '<div class="aven-home-proof"><span>01</span><strong>Describe the need</strong>'
+        '<p>Type naturally or review a voice transcript before anything is searched.</p></div>'
+        '<div class="aven-home-proof featured"><span>02</span><strong>Compare with proof</strong>'
+        '<p>See documented evidence, exact conflicts, distance gaps, and what remains unknown.</p></div>'
+        '<div class="aven-home-proof"><span>03</span><strong>Save the decision</strong>'
+        '<p>Keep a shortlist, correction, or next step for your team.</p></div>'
+        '</div>',
         unsafe_allow_html=True,
     )
     show_tiles()
@@ -721,18 +747,71 @@ def show_intake() -> None:
                     client=voice_client,
                     language_code=language_codes.get(ui_language()),
                 )
-                st.session_state.voice_draft = transcript.text
-                st.info("Transcript ready. Review and edit it before continuing.")
+                st.session_state.intake_message = transcript.text
+                st.session_state.nlp_draft = None
+                st.rerun()
             except VoiceUnavailableError as exc:
                 st.warning(str(exc))
     else:
         st.caption("Voice is not connected here. Typed input is fully supported.")
 
+    natural_request = st.text_area(
+        "Describe the care request naturally",
+        key="intake_message",
+        placeholder="For example: I need a cardiology appointment near Patna and can travel by train.",
+        max_chars=2_000,
+    )
+    nlp_client = configured_nlp_client()
+    if nlp_client is not None:
+        openai_consent = st.checkbox(
+            "I agree to send this text to OpenAI to create an editable structured draft."
+        )
+        if st.button(
+            "Structure with OpenAI",
+            disabled=not openai_consent or not natural_request.strip(),
+        ):
+            try:
+                structured = structure_intake(natural_request, client=nlp_client)
+                st.session_state.nlp_draft = {
+                    "care_task": structured.care_task,
+                    "capability": structured.capability,
+                    "location": structured.location,
+                    "urgency": structured.urgency,
+                    "travel_modes": list(structured.travel_modes),
+                    "language": structured.language,
+                    "clarification_question": structured.clarification_question,
+                }
+                st.session_state.care_task = structured.care_task
+                st.rerun()
+            except (IntakeNlpConfigurationError, IntakeNlpUnavailableError) as exc:
+                st.warning(str(exc))
+    else:
+        st.caption(
+            "OpenAI language structuring is not connected. You can still complete every field manually."
+        )
+
+    draft = st.session_state.get("nlp_draft") or {}
+    if draft:
+        st.info(
+            "OpenAI created a draft. Review every extracted detail below; nothing is searched until you confirm it."
+        )
+        if draft.get("clarification_question"):
+            st.caption(f"Suggested clarification: {draft['clarification_question']}")
+
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
     with st.form("intake_form"):
         st.markdown(f'<div class="aven-section-title">{tx("specifics")}</div>', unsafe_allow_html=True)
-        detail = st.text_input(meta["detail_label"], placeholder=next_question(care_task))
-        location = st.text_input(tx("location_label"), placeholder=tx("location_ph"))
+        use_draft = draft.get("care_task") == care_task
+        detail = st.text_input(
+            meta["detail_label"],
+            value=(draft.get("capability") or "") if use_draft else "",
+            placeholder=next_question(care_task),
+        )
+        location = st.text_input(
+            tx("location_label"),
+            value=(draft.get("location") or "") if use_draft else "",
+            placeholder=tx("location_ph"),
+        )
 
         # Task-specific fields the domain gates require. Without these,
         # validate_confirmed_intake blocks every refill, and a lab request can
@@ -754,11 +833,7 @@ def show_intake() -> None:
             # user is never turned away for a fact they cannot confirm.
             has_order = {"yes": True, "no": False, "unsure": None}[order_choice]
 
-        message = st.text_area(
-            tx("extra_label"),
-            value=st.session_state.get("voice_draft", ""),
-            placeholder=tx("extra_ph"),
-        )
+        message = natural_request
 
         st.markdown(f'<div class="aven-section-title">{tx("prefs")}</div>', unsafe_allow_html=True)
         st.caption(tx("prefs_why"))
@@ -769,7 +844,9 @@ def show_intake() -> None:
                 tx("urgency_label"),
                 options=["Routine", "Soon", "Urgent"],
                 horizontal=True,
-                index=1,
+                index={"routine": 0, "soon": 1, "urgent": 2}.get(
+                    draft.get("urgency") if use_draft else "soon", 1
+                ),
                 format_func=label_for,
             )
             max_distance_km = int(
@@ -783,8 +860,20 @@ def show_intake() -> None:
             )
             travel_modes = st.multiselect(
                 "Travel modes you can use",
-                options=["walk", "bus", "train", "car", "taxi"],
-                default=["bus", "train"],
+                options=list(TRAVEL_MODES),
+                default=(draft.get("travel_modes") or ["bus", "train"])
+                if use_draft
+                else ["bus", "train"],
+                format_func=lambda mode: {
+                    "walk": "Walking",
+                    "bicycle": "Bicycle",
+                    "motorbike": "Motorbike or scooter",
+                    "car": "Car",
+                    "bus": "Bus / public transit",
+                    "train": "Train / public transit",
+                    "taxi": "Taxi (comparison only until sourced)",
+                    "plane": "Flight (comparison only; not a Google Routes mode)",
+                }[mode],
             )
             travel_budget_rupees = int(
                 st.number_input(
@@ -809,7 +898,10 @@ def show_intake() -> None:
             )
             preference = st.radio(tx("facility_label"), options=["Either", "Public", "Private"],
                                   horizontal=True, format_func=label_for)
-        language = st.text_input(tx("language_label"))
+        language = st.text_input(
+            tx("language_label"),
+            value=(draft.get("language") or "") if use_draft else "",
+        )
         submitted = st.form_submit_button(tx("submit"), type="primary", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -945,6 +1037,15 @@ def show_enrichment(option: dict) -> None:
         unsafe_allow_html=True,
     )
 
+    conflicts = data["data_quality"]["conflicting_claims"]
+    if conflicts:
+        st.markdown(
+            '<div class="aven-claim-group">Exact details that disagree</div>',
+            unsafe_allow_html=True,
+        )
+        for conflict in conflicts:
+            st.markdown(quality_note_html(conflict), unsafe_allow_html=True)
+
     for line in enrich.cautions(data):
         sparse = line.startswith("This facility's record is sparse")
         st.markdown(quality_note_html(line, sparse=sparse), unsafe_allow_html=True)
@@ -965,12 +1066,6 @@ def show_enrichment(option: dict) -> None:
                 current_heading = heading
             st.markdown(claim_html(text, evidence, verified), unsafe_allow_html=True)
 
-        conflicts = data["data_quality"]["conflicting_claims"]
-        if conflicts:
-            st.markdown('<div class="aven-claim-group">Conflicting details</div>', unsafe_allow_html=True)
-            for conflict in conflicts:
-                st.markdown(claim_html(conflict, [], True), unsafe_allow_html=True)
-
         # Groups the trust assessment found no verified span for. A gap in the
         # record, stated as such — never as an absent service.
         if assessment.missing_fields:
@@ -986,17 +1081,18 @@ def show_option_card(index: int, option: dict) -> None:
     evidence_status = option.get("evidence_status", "not_documented")
     profile = current_profile()
     facility = option["facility"]
+    safe_facility = escape(str(facility))
     rating = profiles.get_rating(profile, facility)
     with st.container():
         st.markdown(f'<div class="{card_classes(index)}">', unsafe_allow_html=True)
         top = st.columns([3, 2])
         with top[0]:
             st.markdown(
-                f'<div class="aven-option-label">{option["label"]}</div>',
+                f'<div class="aven-option-label">{escape(str(option["label"]))}</div>',
                 unsafe_allow_html=True,
             )
             name_extra = f' <span class="aven-rating-badge">Rated {rating}/5</span>' if rating else ""
-            st.markdown(f'<p class="aven-facility-name">{facility}{name_extra}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="aven-facility-name">{safe_facility}{name_extra}</p>', unsafe_allow_html=True)
         with top[1]:
             st.markdown(
                 evidence_badge_html(
@@ -1008,9 +1104,9 @@ def show_option_card(index: int, option: dict) -> None:
                 unsafe_allow_html=True,
             )
 
-        st.markdown(f'<p class="aven-fact">{option["summary"]}</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="aven-fact"><strong>{option["travel"]}</strong></p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="aven-fact"><strong>{option["cost"]}</strong></p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="aven-fact">{escape(str(option["summary"]))}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="aven-fact"><strong>{escape(str(option["travel"]))}</strong></p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="aven-fact"><strong>{escape(str(option["cost"]))}</strong></p>', unsafe_allow_html=True)
         fit = budget_fit(
             travel_budget_rupees=st.session_state.request.get("travel_budget_rupees"),
             care_budget_rupees=st.session_state.request.get("care_budget_rupees"),
@@ -1020,7 +1116,7 @@ def show_option_card(index: int, option: dict) -> None:
         st.caption(f"Budget check — {fit.summary}")
         modes = ", ".join(st.session_state.request.get("travel_modes") or [])
         st.caption(f"Travel modes you selected: {modes or 'none'}")
-        st.markdown(f'<p class="aven-fact"><strong>What to do next:</strong> {option["next_step"]}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="aven-fact"><strong>What to do next:</strong> {escape(str(option["next_step"]))}</p>', unsafe_allow_html=True)
 
         show_enrichment(option)
 
@@ -1046,13 +1142,13 @@ def show_option_card(index: int, option: dict) -> None:
                 st.markdown("**Evidence**")
                 st.write(option["evidence"])
 
-        with st.expander("Doctors, fees, contact and official web sources"):
+        with st.expander("Contact, phone, doctors, fees and public sources"):
             st.caption(
                 "This optional check sends only the facility name and confirmed service to Tavily. "
-                "Results are source candidates and do not change the ranking until verified."
+                "Phone numbers, links and snippets are source candidates and do not change the ranking until verified."
             )
             source_key = f"web_sources_{index}"
-            if st.button("Find public sources", key=f"web_search_{index}"):
+            if st.button("Find contact & public sources", key=f"web_search_{index}"):
                 try:
                     st.session_state[source_key] = search_public_sources(
                         facility,
@@ -1063,6 +1159,8 @@ def show_option_card(index: int, option: dict) -> None:
             for source in st.session_state.get(source_key, ()):
                 st.link_button(source.title, source.url)
                 st.caption(f"External source candidate · retrieved {source.retrieved_at}")
+                for phone in source.phone_numbers:
+                    st.write(f"Phone candidate: {phone} — verify it on the linked page before calling.")
                 if source.snippet:
                     st.write(source.snippet)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1071,13 +1169,23 @@ def show_option_card(index: int, option: dict) -> None:
 # Modes worth stating truth about for care access. Every one is validated by
 # maps.validate_travel_mode inside the façade, so an unsupported mode raises here
 # rather than reaching the user as a fake capability.
-TRAVEL_MODES = ("walk", "bus", "train", "car", "taxi")
+TRAVEL_MODES = (
+    "walk",
+    "bicycle",
+    "motorbike",
+    "car",
+    "bus",
+    "train",
+    "taxi",
+    "plane",
+)
 
 
 def show_system_status() -> None:
     """What is actually connected right now. Capability state only — the façade
     deliberately exposes no credentials or endpoint identifiers."""
     status = ui_backend().service_status()
+    nlp_connected = configured_nlp_client() is not None
     rows = [
         ("Evidence pipeline", "Live Databricks evidence" if backend.backend_mode() == "live"
          else "Seeded demo data — Vector Search and Agent Bricks are not connected"),
@@ -1085,6 +1193,7 @@ def show_system_status() -> None:
          + (" (live)" if status["map_live_provider"] else " (offline estimates only)")),
         ("Facility database", f"Databricks SQL {status['databricks_mode']}"),
         ("Voice input", status["voice_message"]),
+        ("Language structuring", "OpenAI connected" if nlp_connected else "Manual form only"),
     ]
     with st.expander("What is connected right now"):
         for label, value in rows:
@@ -1176,15 +1285,19 @@ def show_profile() -> None:
     logged_in = is_logged_in()
 
     who = st.session_state.user["name"] if logged_in else "Guest"
+    safe_who = escape(str(who))
     st.markdown(
         f'<div class="aven-profile-head">'
-        f'<span class="aven-section-title">Your profile</span>'
-        f'<h2 class="aven-about-title">Hello, {who}.</h2>'
+        f'<span class="aven-section-title">My plans and account</span>'
+        f'<h2 class="aven-about-title">Hello, {safe_who}.</h2>'
         f'</div>',
         unsafe_allow_html=True,
     )
     if not logged_in:
-        st.info("You're browsing as a guest. Log in (top-right) to keep your history, ratings, and blocked facilities across visits.")
+        st.info(
+            "Guest plans last for this browser session. A local demo profile can persist on this device; "
+            "the deployed app uses your Databricks workspace account."
+        )
 
     stat_cols = st.columns(3)
     stat_cols[0].metric("Requests made", len(profile["history"]))
@@ -1213,11 +1326,18 @@ def show_profile() -> None:
     if profile["saved"]:
         for i, item in enumerate(profile["saved"]):
             facility = item["facility"]
+            safe_facility = escape(str(facility))
+            safe_task = escape(str(CARE_TASKS.get(item.get("care_task", ""), "Saved route")))
+            safe_label = escape(str(item.get("label", "")))
+            safe_travel = escape(str(item.get("travel", "Travel details were not saved in this older plan.")))
+            safe_next_step = escape(str(item.get("next_step", "Open a new request to refresh this plan.")))
             with st.container():
                 st.markdown(f'<div class="aven-profile-card">', unsafe_allow_html=True)
                 st.markdown(
-                    f'<p class="aven-facility-name">{facility}</p>'
-                    f'<p class="aven-fact">{CARE_TASKS.get(item.get("care_task",""), "Saved route")} · {item.get("label","")}</p>',
+                    f'<p class="aven-facility-name">{safe_facility}</p>'
+                    f'<p class="aven-fact">{safe_task} · {safe_label}</p>'
+                    f'<p class="aven-fact"><strong>{safe_travel}</strong></p>'
+                    f'<p class="aven-fact">{safe_next_step}</p>',
                     unsafe_allow_html=True,
                 )
                 rate_col, block_col = st.columns([2, 1], vertical_alignment="center")
@@ -1251,11 +1371,13 @@ def show_profile() -> None:
     if profile["history"]:
         for entry in profile["history"]:
             when = time.strftime("%d %b, %H:%M", time.localtime(entry.get("ts", time.time())))
-            task = CARE_TASKS.get(entry.get("care_task", ""), "Request")
+            task = escape(str(CARE_TASKS.get(entry.get("care_task", ""), "Request")))
+            capability = escape(str(entry.get("capability", "")))
+            location = escape(str(entry.get("location", "")))
             st.markdown(
                 f'<div class="aven-history-row"><span class="aven-history-when">{when}</span>'
-                f'<span><strong>{task}</strong> — {entry.get("capability","")} '
-                f'<span class="dim">· from {entry.get("location","")}</span></span></div>',
+                f'<span><strong>{task}</strong> — {capability} '
+                f'<span class="dim">· from {location}</span></span></div>',
                 unsafe_allow_html=True,
             )
     else:

@@ -161,6 +161,7 @@ class AvenUiBackend:
             rows.append(
                 {
                     "mode": capability.mode,
+                    "provider_mode": capability.provider_mode,
                     "provider": provider.name,
                     "route_supported": capability.route_supported,
                     "comparison_only": capability.comparison_only,

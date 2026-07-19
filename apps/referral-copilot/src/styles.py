@@ -247,12 +247,35 @@ header[data-testid="stHeader"] { display: none; }
 .aven-about-point h4 { margin: 0 0 0.4rem 0; font-size: 1.1rem; font-weight: 700; color: var(--ink); }
 .aven-about-point p { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.5; }
 
+/* ---------- Homepage proof rail ---------- */
+.aven-home-proof-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem;
+  margin: -1.4rem 0 1rem; position: relative; z-index: 2;
+}
+.aven-home-proof {
+  min-height: 154px; padding: 1.2rem 1.25rem; border: 1px solid var(--line-strong);
+  border-radius: 16px; background: color-mix(in srgb, var(--card) 94%, transparent);
+  box-shadow: 0 18px 45px -38px var(--shadow);
+}
+.aven-home-proof.featured { background: var(--ink); border-color: var(--ink); }
+.aven-home-proof > span {
+  display: block; color: var(--accent); font-weight: 800; font-size: 0.72rem;
+  letter-spacing: 0.16em; margin-bottom: 0.8rem;
+}
+.aven-home-proof > strong {
+  display: block; font-family: 'Bricolage Grotesque', sans-serif;
+  color: var(--ink); font-size: 1.05rem; margin-bottom: 0.35rem;
+}
+.aven-home-proof > p { color: var(--muted); font-size: 0.82rem; line-height: 1.45; margin: 0; }
+.aven-home-proof.featured > strong { color: var(--paper); }
+.aven-home-proof.featured > p { color: color-mix(in srgb, var(--paper) 70%, transparent); }
+
 /* ---------- Tiles (the "forms") ---------- */
 .aven-tiles-head { margin: 4rem 0 1.6rem 0; }
 .aven-tiles-hint { color: var(--muted); font-size: 1rem; margin: 0.4rem 0 0 0; }
 
 div[class*="st-key-tile_"] button {
-  min-height: 214px; height: 100%; text-align: left !important;
+  min-height: 232px; height: 232px; text-align: left !important;
   display: flex; flex-direction: column; align-items: flex-start !important; justify-content: flex-start;
   gap: 0.1rem; padding: 1.4rem 1.5rem 1.5rem !important; border-radius: 14px !important;
   background: var(--card) !important; border: 1px solid var(--line-strong) !important;
@@ -273,22 +296,23 @@ div[class*="st-key-tile_"] button:hover {
 }
 div[class*="st-key-tile_"] button:hover::before { background: var(--accent); border-color: var(--accent); color: #fff; transform: rotate(0deg) scale(1.05); }
 div[class*="st-key-tile_"] button p { text-align: left; margin: 0; transition: color 0.2s ease; }
-div[class*="st-key-tile_"] button p:nth-child(1) { font-size: 1.9rem; line-height: 1; margin-bottom: 0.7rem; }
-div[class*="st-key-tile_"] button p:nth-child(2) {
+div[class*="st-key-tile_"] button p:nth-child(1) {
   font-family: 'Bricolage Grotesque', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--ink);
-  letter-spacing: -0.01em; text-transform: uppercase;
+  letter-spacing: -0.01em; text-transform: uppercase; padding-right: 2.4rem;
+  min-height: 2.8em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-div[class*="st-key-tile_"] button p:nth-child(3) {
+div[class*="st-key-tile_"] button p:nth-child(2) {
   font-size: 0.86rem; font-weight: 400; color: var(--muted); line-height: 1.45; margin-top: 0.35rem;
+  min-height: 4.4em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 /* Persistent, always-visible CTA line so it is obviously interactive. */
-div[class*="st-key-tile_"] button p:nth-child(4) {
+div[class*="st-key-tile_"] button p:nth-child(3) {
   margin-top: auto; padding-top: 0.9rem; font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
 }
-div[class*="st-key-tile_"] button:hover p:nth-child(2) { color: var(--paper); }
-div[class*="st-key-tile_"] button:hover p:nth-child(3) { color: color-mix(in srgb, var(--paper) 70%, transparent); }
-div[class*="st-key-tile_"] button:hover p:nth-child(4) { color: var(--accent-deep); }
+div[class*="st-key-tile_"] button:hover p:nth-child(1) { color: var(--paper); }
+div[class*="st-key-tile_"] button:hover p:nth-child(2) { color: color-mix(in srgb, var(--paper) 70%, transparent); }
+div[class*="st-key-tile_"] button:hover p:nth-child(3) { color: var(--accent-deep); }
 
 /* ---------- Scroll reveal ---------- */
 .aven-reveal {
@@ -519,6 +543,7 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
 }
 
 @media (max-width: 720px) {
+  .aven-home-proof-grid { grid-template-columns: 1fr; margin-top: 0.5rem; }
   .aven-about-points { grid-template-columns: 1fr; }
   .aven-about-point, .aven-about-point:not(:last-child), .aven-about-point:not(:first-child) {
     border-right: none; padding-left: 0; padding-right: 0;
