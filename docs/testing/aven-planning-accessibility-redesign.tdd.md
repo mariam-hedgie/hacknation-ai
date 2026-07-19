@@ -57,3 +57,48 @@ and Streamlit rendering tests.
 - Seeded rows do not contain verified doctor rosters, procedure prices, or
   travel fares. The UI must continue to say unknown until an attributable
   source provides a number.
+
+## UI completion pass — 2026-07-19
+
+Journeys added:
+
+- A first-time visitor can state what aven does, what proof is compared, and
+  what result they receive from the first viewport.
+- An older or mobile user chooses one of the six care paths from one large
+  labelled selector rather than a row of small pills.
+- A guest who saves an option sees the saved-plan count in the header and can
+  reopen the plan from My plans.
+- A person who only wants one facility fact can use Quick lookup, while a
+  person who needs a personal decision is directed to Plan care.
+- The lowercase `aven` wordmark is surrounded by sentence-case navigation,
+  headings, form titles, and care-path titles; uppercase remains limited to
+  compact functional evidence labels.
+
+RED evidence:
+
+```text
+python -m unittest tests.test_streamlit_app
+FAILED (failures=2)
+- no lowercase public brand was rendered
+- My plans did not show a saved-plan count
+```
+
+GREEN evidence:
+
+```text
+python -m unittest discover -s tests -q
+Ran 211 tests — OK
+
+npm test
+4 tests passed
+
+python -m compileall -q apps/referral-copilot
+passed
+
+git diff --check
+passed
+```
+
+The local Streamlit health endpoint returned successfully on port 8760. The
+browser-control surface was unavailable in this session, so desktop/mobile
+pixel-level screenshot review remains a manual check before submission.

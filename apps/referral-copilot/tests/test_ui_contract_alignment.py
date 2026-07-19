@@ -7,6 +7,7 @@ view drifts back into reimplementing what the façade owns.
 
 import sys
 import unittest
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -150,9 +151,24 @@ class SimplifiedExperienceTests(unittest.TestCase):
 
     def test_localized_brand_labels_are_available(self):
         app = _app_module()
-        self.assertEqual(app.BRAND_LABELS["en"], "Aven")
+        self.assertEqual(app.BRAND_LABELS["en"], "aven")
+        self.assertTrue(all(not label.startswith("Aven") for label in app.BRAND_LABELS.values()))
         self.assertIn("एवेन", app.BRAND_LABELS["hi"])
         self.assertIn("एव्हन", app.BRAND_LABELS["mr"])
+
+    def test_primary_typography_uses_sentence_case_around_lowercase_brand(self):
+        css = (APP_ROOT / "src" / "styles.py").read_text(encoding="utf-8")
+        selectors = (
+            ".st-key-aven_header .stButton > button",
+            ".aven-hero-eyebrow",
+            ".aven-section-title",
+            'div[class*="st-key-tile_"] button p:nth-child(1)',
+            ".aven-form-title",
+        )
+        for selector in selectors:
+            match = re.search(re.escape(selector) + r"[^\{]*\{([^}]+)\}", css)
+            self.assertIsNotNone(match, selector)
+            self.assertNotIn("text-transform: uppercase", match.group(1), selector)
 
     def test_voice_requires_explicit_third_party_consent(self):
         source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
@@ -160,9 +176,9 @@ class SimplifiedExperienceTests(unittest.TestCase):
 
     def test_openai_intake_requires_consent_and_review(self):
         source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
-        self.assertIn("Structure with OpenAI", source)
-        self.assertIn("send this text to OpenAI", source)
-        self.assertIn("Review every extracted detail", source)
+        self.assertIn("Use OpenAI to auto-fill this form", source)
+        self.assertIn("sends only the text above to OpenAI", source)
+        self.assertIn("Review every detail", source)
 
     def test_my_plans_is_always_available_from_the_header(self):
         import inspect

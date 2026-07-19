@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 APP_DIR = Path(__file__).resolve().parent
@@ -60,8 +59,6 @@ from src.web_evidence import (
 from src.styles import (
     CSS,
     FONT_IMPORT,
-    SCROLL_REVEAL_JS,
-    card_classes,
     chips_html,
     claim_html,
     evidence_badge_html,
@@ -73,9 +70,9 @@ from src.styles import (
 # translations — so the picker can never drift from what is actually translatable.
 LANGUAGES = SUPPORTED_LANGUAGES
 BRAND_LABELS = {
-    "en": "Aven",
-    "hi": "Aven · एवेन",
-    "mr": "Aven · एव्हन",
+    "en": "aven",
+    "hi": "aven · एवेन",
+    "mr": "aven · एव्हन",
 }
 
 # Bounded feedback vocabulary. Labels are ours; the values must stay inside the
@@ -94,7 +91,7 @@ FEEDBACK_OPTIONS = {
 STRINGS = {
     "en": {
         "tagline": "The right care route, with proof.",
-        "boundary": "Aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
+        "boundary": "aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
         "promise": "Tell us what you need. We will help you plan the next step with evidence from facility records.",
         "steps": ["Tell us", "Confirm", "Your plan"],
         "vitals": "Connected across facility networks",
@@ -126,6 +123,19 @@ UI_COPY = {
     "hi": {
         "hero_tagline": "सही देखभाल मार्ग — <em>प्रमाण के साथ।</em>",
         "hero_sub": "अपनी ज़रूरत सरल शब्दों में बताएं। Aven अगला कदम तय करता है और उसके पीछे का प्रमाण दिखाता है।",
+        "hero_eyebrow": "देखभाल खोजें · प्रमाण देखें",
+        "hero_what": "Aven आपको बताता है कि <em>देखभाल के लिए कहां जाएं</em> — और हर विकल्प के पीछे का प्रमाण दिखाता है।",
+        "hero_cta": "शुरू करें — हमें बताएं आपको क्या चाहिए",
+        "hero_meta": ["उपयोग नि:शुल्क", "किसी खाते की ज़रूरत नहीं", "English · हिंदी · मराठी"],
+        "hero_example": ["ज़रूरत", "पटना के पास हृदय रोग विशेषज्ञ", "एवेन जांचता है", "सुविधा प्रमाण + यात्रा", "परिणाम", "अब क्या करना है"],
+        "how_eyebrow": "यह कैसे काम करता है",
+        "how_title": "चिंता से योजना तक — तेज़ी से।",
+        "timeline": [
+            ("हमें बताएं आपको क्या चाहिए", "सरल शब्दों में लिखें या बोलें। कोई चिकित्सा शब्द नहीं, कोई जटिल फ़ॉर्म नहीं।"),
+            ("हम प्रमाण के साथ तुलना करते हैं", "हर विकल्प दिखाता है क्या प्रलेखित है, क्या विरोधाभासी है, और क्या अज्ञात है।"),
+            ("आप निर्णय लें", "अगला स्पष्ट कदम पाएं — कुछ ही सेकंड में, दिनों में नहीं।"),
+        ],
+        "timeline_outcome": "एक योजना जिस पर आप कार्य कर सकें",
         "scroll_cue": "नीचे देखें",
         "nav_cta": "देखें",
         "marquee": [
@@ -188,6 +198,19 @@ UI_COPY = {
     "mr": {
         "hero_tagline": "योग्य काळजी मार्ग — <em>पुराव्यासह.</em>",
         "hero_sub": "तुमची गरज सोप्या शब्दांत सांगा. Aven पुढील पाऊल ठरवते आणि त्यामागील पुरावा दाखवते.",
+        "hero_eyebrow": "काळजी शोधा · पुरावा पहा",
+        "hero_what": "Aven तुम्हाला सांगते की <em>काळजीसाठी कुठे जावे</em> — आणि प्रत्येक पर्यायामागील पुरावा दाखवते.",
+        "hero_cta": "सुरू करा — तुम्हाला काय हवे ते सांगा",
+        "hero_meta": ["वापर विनामूल्य", "खात्याची गरज नाही", "English · हिंदी · मराठी"],
+        "hero_example": ["गरज", "पटनाजवळ हृदयरोग तज्ज्ञ", "एव्हन तपासते", "सुविधेचा पुरावा + प्रवास", "निकाल", "पुढे काय करावे"],
+        "how_eyebrow": "हे कसे कार्य करते",
+        "how_title": "चिंतेपासून योजनेपर्यंत — जलद.",
+        "timeline": [
+            ("तुम्हाला काय हवे ते सांगा", "सोप्या शब्दांत लिहा किंवा बोला. वैद्यकीय शब्द नाहीत, गुंतागुंतीचे फॉर्म नाहीत."),
+            ("आम्ही पुराव्यासह तुलना करतो", "प्रत्येक पर्याय दाखवतो काय नोंदवलेले आहे, काय विसंगत आहे आणि काय अज्ञात आहे."),
+            ("तुम्ही ठरवा", "पुढील स्पष्ट पाऊल मिळवा — काही सेकंदांत, दिवसांत नाही."),
+        ],
+        "timeline_outcome": "कृती करता येईल अशी योजना",
         "scroll_cue": "खाली पहा",
         "nav_cta": "पहा",
         "marquee": [
@@ -249,7 +272,20 @@ UI_COPY = {
     },
     "en": {
         "hero_tagline": "The right care route — <em>with its receipts.</em>",
-        "hero_sub": "Describe a care need in plain words. Aven plans the next step and shows the evidence behind it.",
+        "hero_sub": "Describe a care need in plain words. aven plans the next step and shows the evidence behind it.",
+        "hero_eyebrow": "Find care · See the proof",
+        "hero_what": "aven helps you decide <em>where to go for care</em>, how to get there, and what to do next — with proof you can inspect.",
+        "hero_cta": "Start — tell us what you need",
+        "hero_meta": ["Free to use", "No account needed", "English · हिंदी · मराठी"],
+        "hero_example": ["Need", "cardiology near Patna", "aven checks", "facility proof + travel", "Result", "what to do next"],
+        "how_eyebrow": "How it works",
+        "how_title": "From a care need to a decision in seconds.",
+        "timeline": [
+            ("Tell us what you need", "Type or speak it in plain words. No medical terms, no forms to decode."),
+            ("We compare with proof", "Every option shows what's documented, what conflicts, and what's unknown."),
+            ("You decide", "Get a clear next step, travel plan, and questions to ask before you go."),
+        ],
+        "timeline_outcome": "A plan you can act on",
         "scroll_cue": "Scroll",
         "nav_cta": "Explore",
         "marquee": [
@@ -266,7 +302,7 @@ UI_COPY = {
         "about_eyebrow": "How it works",
         "about_title": "Care that comes with its receipts.",
         "about_body": (
-            "Describe a care-access need in plain words. Aven turns it into a clear, "
+            "Describe a care-access need in plain words. aven turns it into a clear, "
             "structured request, then plans an actionable route — showing the evidence "
             "behind every option and being honest about what it could not confirm."
         ),
@@ -283,7 +319,7 @@ UI_COPY = {
         "location_label": "Where are you starting from?",
         "location_ph": "City, district, or pincode",
         "refill_rx_label": "I have a current prescription or refill instruction for this medicine",
-        "refill_rx_help": "Aven can only plan a refill route when a current prescription is confirmed. We do not change doses or prescribe.",
+        "refill_rx_help": "aven can only plan a refill route when a current prescription is confirmed. We do not change doses or prescribe.",
         "lab_order_label": "Has a clinician ordered this test?",
         "lab_order_options": {"yes": "Yes", "unsure": "I am not sure", "no": "No"},
         "extra_label": "Anything else we should know? (optional)",
@@ -295,7 +331,7 @@ UI_COPY = {
         "budget_label": "How important is minimizing cost?",
         "facility_label": "Facility preference",
         "language_label": "Preferred language (optional)",
-        "submit": "Review what Aven understood",
+        "submit": "Review what aven understood",
         "confirm_title": "Please confirm before we plan",
         "confirm_edit": "Edit request",
         "confirm_go": "Confirm and find routes",
@@ -324,9 +360,9 @@ FEATURE_TILES = [
     {"key": "vaccination", "title": "Vaccination",
      "desc": "Find where to get a vaccine or routine immunization.",
      "detail_label": "Which vaccine or immunization are you planning for?"},
-    {"key": "follow_up", "title": "Find a doctor or follow up",
-     "desc": "Reconnect with a facility or doctor about an appointment.",
-     "detail_label": "Which facility or doctor are you trying to reach?"},
+    {"key": "follow_up", "title": "Find a doctor",
+     "desc": "Find a documented specialty or reconnect with a doctor or facility.",
+     "detail_label": "Which doctor, specialty, or facility do you need?"},
     {"key": "symptom_first", "title": "Not sure what I need",
      "desc": "Talk it through and plan a safe next step. This is not a diagnosis.",
      "detail_label": "What is worrying you today?"},
@@ -388,7 +424,7 @@ def _localize_brand(value):
     if not native:
         return value
     if isinstance(value, str):
-        return value.replace("Aven", native)
+        return value.replace("Aven", native).replace("aven", native)
     if isinstance(value, list):
         return [_localize_brand(item) for item in value]
     if isinstance(value, tuple):
@@ -448,7 +484,6 @@ def tile_copy(care_task: str) -> dict:
 def initialize_state() -> None:
     defaults = {
         "stage": "landing",
-        "saved_plans": [],
         "feedback": {},
         "language": "en",
         "draft_message": "",
@@ -541,46 +576,29 @@ def _go_home() -> None:
 
 
 def show_header_bar() -> None:
-    """Sticky interactive header shown on every view: the AVEN wordmark, page
-    links, a Forms dropdown that jumps straight into any form, and the language
-    picker. Rendered with real Streamlit widgets inside a keyed container that
-    CSS makes sticky and full-bleed."""
+    """A short, task-first header that remains usable at large text sizes."""
     with st.container(key="aven_header"):
-        # brand | home | forms | ask | plans | spacer | language | account
+        saved_count = len(current_profile().get("saved", []))
+        plans_label = f"My plans · {saved_count}" if saved_count else "My plans"
         cols = st.columns(
-            [1.35, 0.65, 0.85, 0.65, 0.9, 0.35, 0.95, 0.95],
+            [1.5, 1.15, 1.25, 1.15, 0.95, 0.95],
             vertical_alignment="center",
         )
-        idx = 0
-
-        with cols[idx]:
+        with cols[0]:
             if st.button(BRAND_LABELS[ui_language()], key="brand_home"):
                 _go_home()
-        idx += 1
-        with cols[idx]:
-            if st.button("Home", key="page_home"):
-                _go_home()
-        idx += 1
-        with cols[idx]:
-            with st.popover("Forms", use_container_width=True):
-                st.markdown("**Choose a form**")
-                for tile in FEATURE_TILES:
-                    if st.button(tile["title"], key=f"navform_{tile['key']}", use_container_width=True):
-                        go_to_intake(tile["key"])
-        idx += 1
-        with cols[idx]:
-            if st.button("Ask", key="page_ask"):
+        with cols[1]:
+            if st.button("Plan care", key="page_plan", type="primary"):
+                go_to_intake(None)
+        with cols[2]:
+            if st.button("Quick lookup", key="page_ask"):
                 st.session_state.stage = "ask"
                 st.rerun()
-        idx += 1
-        with cols[idx]:
-            if st.button("My plans", key="page_saved"):
+        with cols[3]:
+            if st.button(plans_label, key="page_saved"):
                 st.session_state.stage = "profile"
                 st.rerun()
-        idx += 1
-
-        idx += 1  # skip the spacer column
-        with cols[idx]:
+        with cols[4]:
             code = st.selectbox(
                 "Language",
                 options=list(LANGUAGES),
@@ -594,8 +612,7 @@ def show_header_bar() -> None:
                 # An explicit choice supersedes any ?lang= fallback notice.
                 st.session_state.language_notice = None
                 st.rerun()
-        idx += 1
-        with cols[idx]:
+        with cols[5]:
             show_account_control()
 
     # Rendered outside the sticky container so it reads as a page-level notice.
@@ -627,8 +644,8 @@ def show_account_control() -> None:
             )
             st.markdown("**Deployed Databricks workspace account**")
             st.caption(
-                "In the deployed app, Databricks signs you in before Aven opens. "
-                "That identity is used to isolate your saved plans; there is no separate Aven password."
+                "In the deployed app, Databricks signs you in before aven opens. "
+                "That identity is used to isolate your saved plans; there is no separate aven password."
             )
             st.markdown("**Local demo profile**")
             st.caption(
@@ -649,29 +666,51 @@ def show_account_control() -> None:
 
 def show_landing() -> None:
     show_header_bar()
+    meta = "".join(f"<span>{escape(str(item))}</span>" for item in tx("hero_meta"))
+    example = [escape(str(item)) for item in tx("hero_example")]
     st.markdown(
         f'<div class="aven-hero-full">'
         f'<div class="aven-hero-inner">'
+        f'<p class="aven-hero-eyebrow">{tx("hero_eyebrow")}</p>'
         f'<h1 class="aven-display">{BRAND_LABELS[ui_language()]}</h1>'
-        f'<p class="aven-hero-sub">{tx("hero_sub")}</p>'
+        f'<p class="aven-hero-what">{tx("hero_what")}</p>'
+        f'<div class="aven-hero-example" aria-label="Example result">'
+        f'<span><small>{example[0]}</small>{example[1]}</span>'
+        f'<b>→</b><span><small>{example[2]}</small>{example[3]}</span>'
+        f'<b>→</b><span class="result"><small>{example[4]}</small>{example[5]}</span>'
+        f'</div>'
+        f'<div class="aven-hero-meta">{meta}</div>'
         f"</div></div>",
         unsafe_allow_html=True,
     )
+
+    # One big, unmistakable way in — for a first-time or low-confidence visitor.
+    with st.container(key="hero_cta"):
+        if st.button(tx("hero_cta"), key="hero_start", type="primary"):
+            go_to_intake(None)
+
+    show_how_it_works()
+    show_tiles()
+
+
+def show_how_it_works() -> None:
+    """A plain three-step timeline that answers 'what happens if I use this?'
+    Ends on the outcome — a decision in seconds — so the value is obvious."""
+    steps = tx("timeline")
+    nodes = "".join(
+        f'<div class="aven-home-proof"><span>{i + 1}</span>'
+        f'<strong>{escape(str(title))}</strong><p>{escape(str(desc))}</p></div>'
+        for i, (title, desc) in enumerate(steps)
+    )
     st.markdown(
-        '<div class="aven-home-proof-grid aven-reveal">'
-        '<div class="aven-home-proof"><span>01</span><strong>Describe the need</strong>'
-        '<p>Type naturally or review a voice transcript before anything is searched.</p></div>'
-        '<div class="aven-home-proof featured"><span>02</span><strong>Compare with proof</strong>'
-        '<p>See documented evidence, exact conflicts, distance gaps, and what remains unknown.</p></div>'
-        '<div class="aven-home-proof"><span>03</span><strong>Save the decision</strong>'
-        '<p>Keep a shortlist, correction, or next step for your team.</p></div>'
-        '</div>',
+        f'<div class="aven-timeline-head aven-reveal">'
+        f'<span class="aven-section-title">{tx("how_eyebrow")}</span>'
+        f'<h2>{tx("how_title")}</h2></div>'
+        f'<div class="aven-home-proof-grid aven-reveal">{nodes}</div>'
+        f'<div class="aven-timeline-outcome aven-reveal">'
+        f'<span class="aven-timeline-outcome-arrow">→</span>{escape(str(tx("timeline_outcome")))}</div>',
         unsafe_allow_html=True,
     )
-    show_tiles()
-    with st.expander("How Aven works"):
-        st.write(t()["promise"])
-        st.caption(t()["boundary"])
 
 
 def show_tiles() -> None:
@@ -712,20 +751,22 @@ def show_flow_header() -> None:
 
 
 def show_task_switcher(active: str) -> None:
-    """A row of task pills so it is always clear which form you are in and that
-    other forms exist — you can switch without going back to the landing page."""
-    st.markdown(f'<div class="aven-switcher-label">{tx("switcher_label")}</div>', unsafe_allow_html=True)
-    cols = st.columns(len(FEATURE_TILES))
-    for col, tile in zip(cols, (tile_copy(t["key"]) for t in FEATURE_TILES)):
-        is_active = tile["key"] == active
-        if col.button(
-            tile["title"],
-            key=f"taskchip_{tile['key']}",
-            use_container_width=True,
-            type="primary" if is_active else "secondary",
-        ):
-            st.session_state.care_task = tile["key"]
-            st.rerun()
+    """One large, mobile-safe task choice instead of six cramped pills."""
+    task_keys = [tile["key"] for tile in FEATURE_TILES]
+    st.session_state.setdefault("task_switcher", active)
+    if st.session_state.task_switcher not in task_keys:
+        st.session_state.task_switcher = active
+    selected = st.selectbox(
+        "What do you need help with?",
+        options=task_keys,
+        format_func=lambda key: tile_copy(key)["title"],
+        key="task_switcher",
+        help="Choose the closest option. You can change this at any time.",
+    )
+    if selected != active:
+        st.session_state.care_task = selected
+        st.session_state.nlp_draft = None
+        st.rerun()
 
 
 def show_intake() -> None:
@@ -734,6 +775,7 @@ def show_intake() -> None:
     preset = st.session_state.pop("preset_care_task", None)
     if preset in CARE_TASKS:
         st.session_state.care_task = preset
+        st.session_state.task_switcher = preset
     care_task = st.session_state.setdefault("care_task", "known_referral")
     meta = tile_copy(care_task)
 
@@ -789,12 +831,17 @@ def show_intake() -> None:
     )
     nlp_client = configured_nlp_client()
     if nlp_client is not None:
+        st.caption(
+            "Optional auto-fill: aven can use OpenAI to turn your message into the short form below. "
+            "You will review every field before any search. The form also works without this."
+        )
         openai_consent = st.checkbox(
-            "I agree to send this text to OpenAI to create an editable structured draft."
+            "Use OpenAI to auto-fill this form from my message"
         )
         if st.button(
-            "Structure with OpenAI",
+            "Auto-fill my form",
             disabled=not openai_consent or not natural_request.strip(),
+            help="This sends only the text above to OpenAI and creates editable fields. Nothing is searched until you confirm.",
         ):
             try:
                 structured = structure_intake(natural_request, client=nlp_client)
@@ -813,13 +860,13 @@ def show_intake() -> None:
                 st.warning(str(exc))
     else:
         st.caption(
-            "OpenAI language structuring is not connected. You can still complete every field manually."
+            "Auto-fill isn't set up here (it needs an OpenAI key). Just fill in the short form below — it only takes a moment."
         )
 
     draft = st.session_state.get("nlp_draft") or {}
     if draft:
         st.info(
-            "OpenAI created a draft. Review every extracted detail below; nothing is searched until you confirm it."
+            "The form was auto-filled. Review every detail below; nothing is searched until you confirm it."
         )
         if draft.get("clarification_question"):
             st.caption(f"Suggested clarification: {draft['clarification_question']}")
@@ -920,7 +967,7 @@ def show_intake() -> None:
                     max_value=10_000_000,
                     value=0,
                     step=500,
-                    help="Aven compares this only with a sourced fee. Enter 0 to skip.",
+                    help="aven compares this only with a sourced fee. Enter 0 to skip.",
                 )
             )
             preference = st.radio(tx("facility_label"), options=["Either", "Public", "Private"],
@@ -929,7 +976,7 @@ def show_intake() -> None:
                 "Need to arrive by",
                 value=date.today() + timedelta(days=3),
                 min_value=date.today(),
-                help="Aven uses this in journey planning. It is not an appointment or availability guarantee.",
+                help="aven uses this in journey planning. It is not an appointment or availability guarantee.",
             )
         language = st.text_input(
             tx("language_label"),
@@ -1169,7 +1216,7 @@ def show_journey_actions(index: int, option: dict) -> None:
             st.markdown("**External booking options**")
             st.caption(
                 f"Search from {request.get('location')} toward {facility} for arrival by "
-                f"{request.get('required_arrival_date', 'your chosen date')}. Aven does not book or process payment."
+                f"{request.get('required_arrival_date', 'your chosen date')}. aven does not book or process payment."
             )
             ticket_cols = st.columns(len(ticket_links))
             for column, link in zip(ticket_cols, ticket_links):
@@ -1242,17 +1289,19 @@ def show_option_card(index: int, option: dict) -> None:
     profile = current_profile()
     facility = option["facility"]
     safe_facility = escape(str(facility))
-    rating = profiles.get_rating(profile, facility)
-    with st.container():
-        st.markdown(f'<div class="{card_classes(index)}">', unsafe_allow_html=True)
+    already_saved = any(plan["facility"] == facility for plan in profile["saved"])
+    with st.container(key=f"result_card_{index}"):
+        st.markdown(
+            f'<div class="aven-result-marker" aria-hidden="true">{index + 1}</div>',
+            unsafe_allow_html=True,
+        )
         top = st.columns([3, 2])
         with top[0]:
             st.markdown(
                 f'<div class="aven-option-label">{escape(str(option["label"]))}</div>',
                 unsafe_allow_html=True,
             )
-            name_extra = f' <span class="aven-rating-badge">Rated {rating}/5</span>' if rating else ""
-            st.markdown(f'<p class="aven-facility-name">{safe_facility}{name_extra}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="aven-facility-name">{safe_facility}</p>', unsafe_allow_html=True)
         with top[1]:
             st.markdown(
                 evidence_badge_html(
@@ -1281,20 +1330,18 @@ def show_option_card(index: int, option: dict) -> None:
         show_enrichment(option)
         show_journey_actions(index, option)
 
-        button_cols = st.columns([1, 1, 1])
+        button_cols = st.columns([1, 1])
         with button_cols[0]:
-            if st.button("Save plan", key=f"save_{index}", use_container_width=True):
-                already_saved = any(plan["facility"] == facility for plan in st.session_state.saved_plans)
-                st.session_state.saved_plans.append(option)
+            if already_saved:
+                if st.button("Open saved plan", key=f"open_saved_{index}", use_container_width=True):
+                    st.session_state.stage = "profile"
+                    st.rerun()
+            elif st.button("Save plan", key=f"save_{index}", type="primary", use_container_width=True):
                 profiles.add_saved(profile, option, st.session_state.request.get("care_task", ""))
                 persist_profile()
-                st.success("Saved — reopen it from My plans.")
-        with button_cols[1]:
-            if st.button("Do not recommend again", key=f"block_{index}", use_container_width=True):
-                profiles.block_facility(profile, facility)
-                persist_profile()
+                st.session_state.save_notice = facility
                 st.rerun()
-        with button_cols[2]:
+        with button_cols[1]:
             with st.expander("Why this option?"):
                 st.markdown(f"**{safety_copy('what_we_could_not_confirm')}**")
                 st.write(option["unknowns"])
@@ -1324,7 +1371,6 @@ def show_option_card(index: int, option: dict) -> None:
                     st.write(f"Phone candidate: {phone} — verify it on the linked page before calling.")
                 if source.snippet:
                     st.write(source.snippet)
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # Modes worth stating truth about for care access. Every one is validated by
@@ -1382,6 +1428,8 @@ def show_results() -> None:
     request = st.session_state.request
     st.markdown(f'<div class="aven-section-title">{tx("results_title")}</div>', unsafe_allow_html=True)
     st.caption(f"For: {request['capability']} · Starting from: {request['location']}")
+    if st.session_state.pop("save_notice", None):
+        st.success("Plan saved. Open “My plans” in the top bar whenever you need it.")
 
     if backend.backend_mode() == "demo":
         st.markdown(
@@ -1416,6 +1464,14 @@ def show_results() -> None:
     if not visible:
         st.info("Every documented option here is on your blocklist. Unblock a facility in your profile to see routes again.")
 
+    if visible:
+        st.markdown(
+            '<div class="aven-decision-head"><span>Decision ready</span>'
+            '<strong>Compare the proof, then choose your next step.</strong>'
+            '<p>The first option has the strongest documented match. Alternatives show their trade-offs and unknowns.</p></div>',
+            unsafe_allow_html=True,
+        )
+
     for index, option in enumerate(visible):
         show_option_card(index, option)
 
@@ -1430,10 +1486,9 @@ def show_results() -> None:
         st.session_state.feedback = {"status": FEEDBACK_OPTIONS[label], "note": note}
         st.success("Feedback saved for this demo session. It does not change facility evidence.")
 
-    if st.session_state.saved_plans:
-        st.markdown('<div class="aven-section-title">My plans</div>', unsafe_allow_html=True)
-        for plan in st.session_state.saved_plans:
-            st.markdown(f"- **{plan['facility']}** — {plan['label']}")
+    saved_count = len(current_profile()["saved"])
+    if saved_count:
+        st.caption(f"{saved_count} saved plan{'s' if saved_count != 1 else ''} — reopen anytime from “My plans” in the top bar.")
 
     if st.button("Start a new request"):
         st.session_state.stage = "intake"
@@ -1443,41 +1498,55 @@ def show_results() -> None:
 
 
 def show_ask_data() -> None:
-    """Planner data questions via the Genie seam (src/backend/genie.py):
-    a free-text question goes to a Databricks Genie Space, which generates
-    governed SQL against the facility tables and returns rows. Separate from
-    the referral flow — this is for coverage/aggregate questions like "how
-    many facilities near Patna document dialysis?", not a single user's plan.
-    Always shows the generated SQL alongside the answer as its evidence."""
-    st.markdown('<div class="aven-section-title">Planner data questions</div>', unsafe_allow_html=True)
-    st.markdown("## Ask Aven about the data")
-    st.caption(
-        "Aven turns this into governed SQL over the facility tables via Databricks Genie and shows "
-        "the query it ran — this is aggregate/coverage data, not a personal care plan."
+    """A lightweight facility lookup when the person does not need a route."""
+    st.markdown(
+        '<div class="aven-profile-head">'
+        '<span class="aven-section-title">Quick lookup</span>'
+        '<h2 class="aven-about-title">Check one care fact.</h2>'
+        '<p class="aven-about-body">Use this when you only need to know which facility records mention a '
+        'doctor, specialty, test, or service. It gives a short sourced answer — no travel questions and no '
+        'personal route. If you need to decide where to go and how to get there, choose Plan care.</p>'
+        '</div>',
+        unsafe_allow_html=True,
     )
+
+    if st.button("I need a personal route instead", type="primary"):
+        go_to_intake(None)
 
     genie_available = backend.status().get("genie", False)
     if not genie_available:
         st.markdown(
-            '<div class="aven-datasource-note">Genie is not connected in this environment '
-            "(no AVEN_GENIE_SPACE_ID / Databricks SQL warehouse configured), so this page can't "
-            "answer yet. Once wired, questions here get translated to SQL against the real facility "
-            "tables.</div>",
+            '<div class="aven-datasource-note">Quick lookup needs the live facility database, which is not '
+            "connected in this local demo. The care-planning forms still work with clearly labelled sample "
+            "options.</div>",
             unsafe_allow_html=True,
         )
+
+    examples = [
+        "Which facilities near Patna document cardiology?",
+        "Which records mention an eye doctor or ophthalmology?",
+        "Which public hospitals document a blood testing lab?",
+    ]
+    st.markdown('<div class="aven-switcher-label">Try an example</div>', unsafe_allow_html=True)
+    ex_cols = st.columns(len(examples))
+    for col, example in zip(ex_cols, examples):
+        if col.button(example, key=f"ask_ex_{hash(example) & 0xffff}", use_container_width=True):
+            st.session_state.ask_q = example
+            st.rerun()
 
     with st.form("ask_data_form"):
         question = st.text_input(
             "Your question",
+            key="ask_q",
             placeholder="e.g. How many facilities near Patna document dialysis?",
         )
-        submitted = st.form_submit_button("Ask", type="primary", disabled=not genie_available)
+        submitted = st.form_submit_button("Check facility records", type="primary", disabled=not genie_available)
 
     if submitted and question.strip():
-        with st.spinner("Asking Genie…"):
+        with st.spinner("Finding the answer…"):
             result = backend.ask_data_question(question, conversation_id=st.session_state.ask_conversation_id)
         if result is None:
-            st.warning("Aven could not answer that — Genie may be unavailable or found nothing to say. Try rephrasing.")
+            st.warning("aven could not answer that one. Try rephrasing, or use Plan care for a personal route.")
         else:
             st.session_state.ask_conversation_id = result.get("conversation_id")
             st.session_state.ask_history.append({"question": question, "result": result})
@@ -1489,7 +1558,8 @@ def show_ask_data() -> None:
         if result.get("answer"):
             st.markdown(result["answer"])
         if result.get("sql"):
-            with st.expander("Generated SQL (the evidence for this answer)"):
+            with st.expander("How this answer was checked"):
+                st.caption("This read-only query shows exactly which facility records were checked.")
                 st.code(result["sql"], language="sql")
         if result.get("rows"):
             st.dataframe(pd.DataFrame(result["rows"]), use_container_width=True)
@@ -1509,41 +1579,30 @@ def show_profile() -> None:
     safe_who = escape(str(who))
     st.markdown(
         f'<div class="aven-profile-head">'
-        f'<span class="aven-section-title">My plans and account</span>'
-        f'<h2 class="aven-about-title">Hello, {safe_who}.</h2>'
+        f'<span class="aven-section-title">My plans</span>'
+        f'<h2 class="aven-about-title">Your saved plans, {safe_who}.</h2>'
+        f'<p class="aven-about-body">{len(profile["saved"])} saved plan'
+        f'{"s" if len(profile["saved"]) != 1 else ""} · kept together for your next call or visit.</p>'
         f'</div>',
         unsafe_allow_html=True,
     )
-    if not logged_in:
-        st.info(
-            "Guest plans last for this browser session. A local demo profile can persist on this device; "
-            "the deployed app uses your Databricks workspace account."
-        )
-
-    stat_cols = st.columns(3)
-    stat_cols[0].metric("Requests made", len(profile["history"]))
-    stat_cols[1].metric("Saved referrals", len(profile["saved"]))
-    stat_cols[2].metric("Blocked facilities", len(profile["blocklist"]))
 
     if st.button("Start a new request", type="primary"):
         go_to_intake(None)
 
-    # --- Blocklist ---
-    st.markdown('<div class="aven-section-title">Facilities you blocked</div>', unsafe_allow_html=True)
-    if profile["blocklist"]:
-        st.caption("Aven will never include these in your routes. Remove one to allow it again.")
-        for i, facility in enumerate(list(profile["blocklist"])):
-            row = st.columns([4, 1], vertical_alignment="center")
-            row[0].markdown(f"**{facility}**")
-            if row[1].button("Unblock", key=f"unblock_{i}", use_container_width=True):
-                profiles.unblock_facility(profile, facility)
-                persist_profile()
-                st.rerun()
-    else:
-        st.caption("None yet. On any result you can tap “Never refer me here”.")
-
-    # --- Saved referrals + ratings ---
-    st.markdown('<div class="aven-section-title">Saved referrals & ratings</div>', unsafe_allow_html=True)
+    # --- Saved plans lead the page: it is what "My plans" promises. ---
+    st.markdown('<div class="aven-section-title">Saved plans</div>', unsafe_allow_html=True)
+    if not profile["saved"]:
+        st.markdown(
+            '<div class="aven-datasource-note">You have no saved plans yet. '
+            "Start a request above, then tap <strong>Save plan</strong> on any option — it will appear here.</div>",
+            unsafe_allow_html=True,
+        )
+    if not logged_in:
+        st.caption(
+            "You're browsing as a guest, so these plans last only for this browser session. "
+            "Use a local demo profile (top-right Account) to keep them on this device."
+        )
     if profile["saved"]:
         for i, item in enumerate(profile["saved"]):
             facility = item["facility"]
@@ -1552,8 +1611,7 @@ def show_profile() -> None:
             safe_label = escape(str(item.get("label", "")))
             safe_travel = escape(str(item.get("travel", "Travel details were not saved in this older plan.")))
             safe_next_step = escape(str(item.get("next_step", "Open a new request to refresh this plan.")))
-            with st.container():
-                st.markdown(f'<div class="aven-profile-card">', unsafe_allow_html=True)
+            with st.container(key=f"saved_plan_{i}"):
                 st.markdown(
                     f'<p class="aven-facility-name">{safe_facility}</p>'
                     f'<p class="aven-fact">{safe_task} · {safe_label}</p>'
@@ -1561,35 +1619,10 @@ def show_profile() -> None:
                     f'<p class="aven-fact">{safe_next_step}</p>',
                     unsafe_allow_html=True,
                 )
-                rate_col, block_col = st.columns([2, 1], vertical_alignment="center")
-                with rate_col:
-                    st.caption("Rate this hospital")
-                    stored = profiles.get_rating(profile, facility)
-                    rkey = f"prate_{i}_{facility}"
-                    st.session_state.setdefault(rkey, (stored - 1) if stored else None)
-                    chosen = st.feedback("stars", key=rkey)
-                    if chosen is not None and (stored is None or chosen + 1 != stored):
-                        profiles.set_rating(profile, facility, chosen + 1)
-                        persist_profile()
-                        st.rerun()
-                with block_col:
-                    if facility in profile["blocklist"]:
-                        if st.button("Unblock", key=f"psaved_unblock_{i}", use_container_width=True):
-                            profiles.unblock_facility(profile, facility)
-                            persist_profile()
-                            st.rerun()
-                    else:
-                        if st.button("Do not recommend again", key=f"psaved_block_{i}", use_container_width=True):
-                            profiles.block_facility(profile, facility)
-                            persist_profile()
-                            st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        st.caption("No saved referrals yet. Save a route from your results to rate it later.")
 
-    # --- History ---
-    st.markdown('<div class="aven-section-title">Past requests</div>', unsafe_allow_html=True)
+    # --- Past requests (secondary) ---
     if profile["history"]:
+        st.markdown('<div class="aven-section-title">Past requests</div>', unsafe_allow_html=True)
         for entry in profile["history"]:
             when = time.strftime("%d %b, %H:%M", time.localtime(entry.get("ts", time.time())))
             task = escape(str(CARE_TASKS.get(entry.get("care_task", ""), "Request")))
@@ -1601,12 +1634,22 @@ def show_profile() -> None:
                 f'<span class="dim">· from {location}</span></span></div>',
                 unsafe_allow_html=True,
             )
-    else:
-        st.caption("Nothing here yet. Your submitted requests will show up here.")
+
+    # --- Blocked facilities (rarely needed, tucked into an expander) ---
+    if profile["blocklist"]:
+        with st.expander(f"Facilities you blocked ({len(profile['blocklist'])})"):
+            st.caption("aven never includes these in your routes. Remove one to allow it again.")
+            for i, facility in enumerate(list(profile["blocklist"])):
+                row = st.columns([4, 1], vertical_alignment="center")
+                row[0].markdown(f"**{facility}**")
+                if row[1].button("Unblock", key=f"unblock_{i}", use_container_width=True):
+                    profiles.unblock_facility(profile, facility)
+                    persist_profile()
+                    st.rerun()
 
 
 def main() -> None:
-    st.set_page_config(page_title="Aven", page_icon="A", layout="centered")
+    st.set_page_config(page_title="aven", page_icon="a", layout="centered")
     st.markdown(FONT_IMPORT, unsafe_allow_html=True)
     st.markdown(CSS, unsafe_allow_html=True)
     initialize_state()
@@ -1646,10 +1689,5 @@ def main() -> None:
         f"</div>",
         unsafe_allow_html=True,
     )
-    # Injected last so every .aven-reveal element above already exists in the
-    # DOM by the time this script runs and starts observing them.
-    components.html(SCROLL_REVEAL_JS, height=0)
-
-
 if __name__ == "__main__":
     main()

@@ -14,3 +14,4 @@ htmlcov/
 .aven_profiles.json
 apps/referral-copilot/.aven_profiles.json
 .gstack/
+data/

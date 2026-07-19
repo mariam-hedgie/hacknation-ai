@@ -41,28 +41,8 @@ CSS = """
   --shadow: rgba(23, 22, 15, 0.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #efece4;
-    --muted: #a29e92;
-    --faint: #726e63;
-    --paper: #12110d;
-    --paper-2: #16150f;
-    --card: #1a1811;
-    --line: #2c2a22;
-    --line-strong: #3a3830;
-    --accent: #2bb3a8;
-    --accent-deep: #6cd6cc;
-    --accent-soft: #14261f;
-    --documented-bg: #12261f; --documented-ink: #6cd6cc;
-    --conflict-bg: #2c2210;  --conflict-ink: #e6b24e;
-    --unknown-bg: #23221b;   --unknown-ink: #bdbaad;
-    --external-bg: #16203a;  --external-ink: #8fb3f0;
-    --user-bg: #201a2e;      --user-ink: #c6a6f0;
-    --emergency-bg: #2c1512; --emergency-border: #d9695a; --emergency-ink: #f0b5ac;
-    --shadow: rgba(0, 0, 0, 0.5);
-  }
-}
+/* Keep the care-planning surface light in every OS theme. Evidence cards must
+   never flip to a black background simply because the device prefers dark UI. */
 
 html { scroll-behavior: smooth; }
 html, body, [class*="css"] { font-family: 'Manrope', -apple-system, sans-serif; color: var(--ink); }
@@ -84,7 +64,7 @@ header[data-testid="stHeader"] { display: none; }
 
 /* ---------- Eyebrow / kicker ---------- */
 .aven-eyebrow {
-  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em;
   color: var(--accent); display: inline-flex; align-items: center; gap: 0.5rem;
 }
 
@@ -107,20 +87,24 @@ header[data-testid="stHeader"] { display: none; }
 .st-key-aven_header [data-testid="stPopover"] button {
   border: none !important; background: transparent !important; color: var(--ink) !important;
   border-radius: 999px !important; min-height: 40px !important;
-  font-size: 0.74rem !important; font-weight: 700 !important; letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: 0.78rem !important; font-weight: 700 !important; letter-spacing: 0.01em;
   transition: color 0.15s ease, background 0.15s ease !important; box-shadow: none !important;
 }
 .st-key-aven_header .stButton > button:hover,
 .st-key-aven_header [data-testid="stPopover"] button:hover {
   background: var(--accent-soft) !important; color: var(--accent) !important; transform: none !important;
 }
-/* The brand button: bigger, tighter, the wordmark. */
+/* The brand button: bigger, tighter, the wordmark — always lowercase. */
 .st-key-brand_home button {
   font-family: 'Bricolage Grotesque', sans-serif !important;
-  font-size: 1.35rem !important; font-weight: 800 !important; letter-spacing: -0.01em !important;
-  text-transform: uppercase; padding-left: 0 !important; justify-content: flex-start !important;
+  font-size: 1.4rem !important; font-weight: 800 !important; letter-spacing: -0.02em !important;
+  text-transform: lowercase !important; padding-left: 0 !important; justify-content: flex-start !important;
 }
 .st-key-brand_home button:hover { background: transparent !important; color: var(--accent) !important; }
+.st-key-page_plan button {
+  background: var(--ink) !important; color: var(--card) !important;
+  padding-inline: 1rem !important; letter-spacing: 0.06em !important;
+}
 
 /* Language picker in the header: compact, borderless. */
 .st-key-lang_header div[data-baseweb="select"] > div {
@@ -156,18 +140,52 @@ header[data-testid="stHeader"] { display: none; }
 .aven-hero-full {
   width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
   margin-top: -3.4rem; margin-bottom: 0;
-  min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
-  padding: 6rem clamp(1.5rem, 6vw, 5rem) 4rem; text-align: center;
+  min-height: auto; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  padding: 7.5rem clamp(1.5rem, 6vw, 5rem) 3.5rem; text-align: center;
   border-bottom: 1px solid var(--line);
   background:
-    radial-gradient(60% 50% at 50% 0%, var(--accent-soft) 0%, transparent 70%),
+    linear-gradient(rgba(15,110,106,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,110,106,0.035) 1px, transparent 1px),
+    radial-gradient(70% 70% at 50% 0%, #dcebe7 0%, transparent 70%),
     var(--paper);
+  background-size: 44px 44px, 44px 44px, auto, auto;
 }
-.aven-hero-inner { max-width: 1100px; display: flex; flex-direction: column; align-items: center; gap: 1.1rem; }
+.aven-hero-inner { max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 0.9rem; }
+.aven-hero-eyebrow {
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--accent); margin: 0;
+}
 .aven-display {
-  margin: 0.3rem 0 0 0; color: var(--ink); text-transform: uppercase;
-  font-size: clamp(5rem, 24vw, 20rem); font-weight: 800; letter-spacing: -0.05em; line-height: 0.84;
+  margin: 0.2rem 0 0 0; color: var(--ink); text-transform: lowercase;
+  font-size: clamp(4.5rem, 17vw, 12rem); font-weight: 800; letter-spacing: -0.05em; line-height: 0.86;
 }
+/* Plain one-line answer to "what is this?" — the first thing a new visitor reads. */
+.aven-hero-what {
+  font-family: 'Bricolage Grotesque', 'Manrope', sans-serif;
+  font-size: clamp(1.35rem, 3vw, 2rem); font-weight: 600; color: var(--ink);
+  line-height: 1.2; letter-spacing: -0.01em; max-width: 24ch; margin: 0.4rem 0 0 0;
+}
+.aven-hero-what em { font-style: italic; color: var(--accent); }
+.aven-hero-example {
+  display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch;
+  width: min(820px, 100%); margin: 0.7rem auto 0; text-align: left;
+  background: rgba(251,250,245,0.92); border: 1px solid var(--line-strong);
+  border-radius: 18px; box-shadow: 0 24px 70px -52px var(--ink); overflow: hidden;
+}
+.aven-hero-example > span { padding: 1rem 1.1rem; color: var(--ink); font-size: 0.88rem; font-weight: 700; }
+.aven-hero-example > span small {
+  display: block; color: var(--muted); font-size: 0.65rem; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 0.28rem;
+}
+.aven-hero-example > b { display: flex; align-items: center; color: var(--faint); font-weight: 500; }
+.aven-hero-example > .result { background: var(--accent-soft); color: var(--accent-deep); }
+/* Reassurance row: free, no account, three languages — grandmother-proof. */
+.aven-hero-meta {
+  display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 0.9rem;
+  color: var(--muted); font-size: 0.85rem; font-weight: 600; margin-top: 0.3rem;
+}
+.aven-hero-meta span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.aven-hero-meta span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .aven-hero-tagline {
   font-size: clamp(1.3rem, 3.4vw, 2.2rem); font-weight: 500; color: var(--ink); line-height: 1.15;
   max-width: 22ch; margin: 0.2rem 0 0 0; letter-spacing: -0.01em;
@@ -222,7 +240,8 @@ header[data-testid="stHeader"] { display: none; }
 
 /* ---------- Section title (small kicker) ---------- */
 .aven-section-title {
-  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  font-family: 'Bricolage Grotesque', 'Manrope', sans-serif;
+  font-size: 0.86rem; font-weight: 700; letter-spacing: 0.01em;
   color: var(--muted); margin: 0; display: inline-flex; align-items: center; gap: 0.6rem;
 }
 .aven-section-title::before { content: ""; width: 26px; height: 1px; background: var(--accent); }
@@ -247,28 +266,54 @@ header[data-testid="stHeader"] { display: none; }
 .aven-about-point h4 { margin: 0 0 0.4rem 0; font-size: 1.1rem; font-weight: 700; color: var(--ink); }
 .aven-about-point p { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.5; }
 
-/* ---------- Homepage proof rail ---------- */
+/* ---------- Homepage "how it works" timeline ---------- */
+.aven-timeline-head { margin: 3.4rem 0 1.8rem; text-align: center; }
+.aven-timeline-head .aven-section-title { justify-content: center; }
+.aven-timeline-head h2 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: clamp(1.7rem, 4vw, 2.6rem); letter-spacing: -0.02em; color: var(--ink);
+  margin: 0.7rem 0 0; line-height: 1.05;
+}
 .aven-home-proof-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem;
-  margin: -1.4rem 0 1rem; position: relative; z-index: 2;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;
+  margin: 0 0 1.4rem; position: relative; z-index: 2;
+}
+/* The connecting rail behind the three numbered nodes. */
+.aven-home-proof-grid::before {
+  content: ""; position: absolute; top: 26px; left: 12%; right: 12%; height: 2px;
+  background: linear-gradient(90deg, var(--line-strong), var(--accent), var(--line-strong));
+  z-index: 0;
 }
 .aven-home-proof {
-  min-height: 154px; padding: 1.2rem 1.25rem; border: 1px solid var(--line-strong);
-  border-radius: 16px; background: color-mix(in srgb, var(--card) 94%, transparent);
-  box-shadow: 0 18px 45px -38px var(--shadow);
+  position: relative; z-index: 1; padding: 0 0.6rem; text-align: center;
+  display: flex; flex-direction: column; align-items: center;
 }
-.aven-home-proof.featured { background: var(--ink); border-color: var(--ink); }
+/* Numbered node sitting on the rail. */
 .aven-home-proof > span {
-  display: block; color: var(--accent); font-weight: 800; font-size: 0.72rem;
-  letter-spacing: 0.16em; margin-bottom: 0.8rem;
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--card); border: 2px solid var(--accent); color: var(--accent);
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 1.15rem;
+  margin-bottom: 1rem; box-shadow: 0 6px 18px -10px var(--shadow);
+}
+.aven-home-proof.outcome > span {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-size: 1.4rem;
 }
 .aven-home-proof > strong {
   display: block; font-family: 'Bricolage Grotesque', sans-serif;
-  color: var(--ink); font-size: 1.05rem; margin-bottom: 0.35rem;
+  color: var(--ink); font-size: 1.08rem; margin-bottom: 0.35rem; letter-spacing: -0.01em;
 }
-.aven-home-proof > p { color: var(--muted); font-size: 0.82rem; line-height: 1.45; margin: 0; }
-.aven-home-proof.featured > strong { color: var(--paper); }
-.aven-home-proof.featured > p { color: color-mix(in srgb, var(--paper) 70%, transparent); }
+.aven-home-proof > p { color: var(--muted); font-size: 0.86rem; line-height: 1.5; margin: 0; max-width: 22ch; }
+.aven-home-proof.outcome > strong { color: var(--accent-deep); }
+/* The payoff line, centered under the timeline. */
+.aven-timeline-outcome {
+  display: flex; align-items: center; justify-content: center; gap: 0.55rem;
+  margin: 0.2rem auto 0; width: fit-content;
+  background: var(--accent-soft); color: var(--accent-deep);
+  border: 1px solid var(--accent); border-radius: 999px;
+  padding: 0.55rem 1.3rem; font-weight: 700; font-size: 0.95rem;
+}
+.aven-timeline-outcome-arrow { font-weight: 800; }
 
 /* ---------- Tiles (the "forms") ---------- */
 .aven-tiles-head { margin: 4rem 0 1.6rem 0; }
@@ -291,14 +336,14 @@ div[class*="st-key-tile_"] button::before {
   color: var(--accent); font-size: 1rem; transition: all 0.22s ease;
 }
 div[class*="st-key-tile_"] button:hover {
-  background: var(--ink) !important; border-color: var(--ink) !important; transform: translateY(-4px) !important;
+  background: var(--accent-soft) !important; border-color: var(--accent) !important; transform: translateY(-4px) !important;
   box-shadow: 0 24px 40px -26px var(--shadow) !important;
 }
 div[class*="st-key-tile_"] button:hover::before { background: var(--accent); border-color: var(--accent); color: #fff; transform: rotate(0deg) scale(1.05); }
 div[class*="st-key-tile_"] button p { text-align: left; margin: 0; transition: color 0.2s ease; }
 div[class*="st-key-tile_"] button p:nth-child(1) {
   font-family: 'Bricolage Grotesque', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--ink);
-  letter-spacing: -0.01em; text-transform: uppercase; padding-right: 2.4rem;
+  letter-spacing: -0.01em; padding-right: 2.4rem;
   min-height: 2.8em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 div[class*="st-key-tile_"] button p:nth-child(2) {
@@ -310,24 +355,22 @@ div[class*="st-key-tile_"] button p:nth-child(3) {
   margin-top: auto; padding-top: 0.9rem; font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
 }
-div[class*="st-key-tile_"] button:hover p:nth-child(1) { color: var(--paper); }
-div[class*="st-key-tile_"] button:hover p:nth-child(2) { color: color-mix(in srgb, var(--paper) 70%, transparent); }
+div[class*="st-key-tile_"] button:hover p:nth-child(1) { color: var(--ink); }
+div[class*="st-key-tile_"] button:hover p:nth-child(2) { color: var(--muted); }
 div[class*="st-key-tile_"] button:hover p:nth-child(3) { color: var(--accent-deep); }
 
 /* ---------- Scroll reveal ---------- */
 .aven-reveal {
-  opacity: 0; transform: translateY(22px);
-  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1);
-  will-change: opacity, transform;
+  animation: aven-reveal-in 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
-.aven-reveal.aven-visible { opacity: 1; transform: translateY(0); }
-.aven-reveal.stagger-0.aven-visible { transition-delay: 0.02s; }
-.aven-reveal.stagger-1.aven-visible { transition-delay: 0.1s; }
-.aven-reveal.stagger-2.aven-visible { transition-delay: 0.18s; }
+@keyframes aven-reveal-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .aven-logo-pulse path, .aven-chevron, .aven-marquee-track, .aven-ecg-blip { animation: none; }
-  .aven-reveal { opacity: 1; transform: none; transition: none; }
+  .aven-reveal { animation: none; }
   div[class*="st-key-tile_"] button:hover { transform: none !important; }
 }
 
@@ -348,21 +391,6 @@ div[class*="st-key-tile_"] button:hover p:nth-child(3) { color: var(--accent-dee
 }
 
 /* ---------- Task switcher + branded form header ---------- */
-.aven-switcher-label {
-  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
-  color: var(--muted); margin: 0.4rem 0 0.6rem 0;
-}
-div[class*="st-key-taskchip_"] button {
-  border-radius: 999px !important; padding: 0.4rem 0.7rem !important; min-height: 40px;
-  font-size: 0.8rem !important; font-weight: 600 !important;
-  border: 1px solid var(--line-strong) !important; background: var(--card) !important;
-  color: var(--muted) !important; transition: all 0.15s ease !important;
-}
-div[class*="st-key-taskchip_"] button:hover { border-color: var(--ink) !important; color: var(--ink) !important; transform: none !important; }
-div[class*="st-key-taskchip_"] button[kind="primary"] {
-  background: var(--ink) !important; color: var(--paper) !important; border-color: var(--ink) !important;
-}
-
 .aven-form-head {
   display: flex; align-items: center; gap: 1.1rem; margin: 1.6rem 0 0.8rem 0;
   padding: 1.4rem 0; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line);
@@ -372,20 +400,38 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
   display: flex; align-items: center; justify-content: center; font-size: 1.8rem;
   background: var(--accent-soft); border: 1px solid var(--line);
 }
-.aven-form-title { margin: 0; font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); text-transform: uppercase; }
+.aven-form-title { margin: 0; font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
 .aven-form-blurb { margin: 0.2rem 0 0 0; color: var(--muted); font-size: 0.94rem; }
 
-/* ---------- Result cards ---------- */
-.aven-card {
-  background: var(--card); border: 1px solid var(--line); border-radius: 0;
-  border-left: 2px solid var(--line-strong);
-  padding: 1.5rem 1.6rem; margin-bottom: 1rem; position: relative;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+/* ---------- Result decision timeline ---------- */
+.aven-decision-head {
+  margin: 1.8rem 0 1.2rem 1.25rem; padding: 1rem 1.2rem;
+  background: var(--accent-soft); border: 1px solid #bfd9d4; border-radius: 14px;
 }
-.aven-card:hover { transform: translateX(3px); }
-.aven-card.rank-0 { border-left-color: var(--accent); }
-.aven-card.rank-1 { border-left-color: var(--line-strong); }
-.aven-card.rank-2 { border-left-color: var(--line-strong); }
+.aven-decision-head > span {
+  display: block; color: var(--accent); font-size: 0.68rem; font-weight: 800;
+  letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 0.25rem;
+}
+.aven-decision-head > strong { display: block; color: var(--ink); font-size: 1.05rem; }
+.aven-decision-head > p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.85rem; }
+div[class*="st-key-result_card_"] {
+  position: relative; background: var(--card); border: 1px solid var(--line-strong);
+  border-radius: 18px; padding: 1.35rem 1.45rem 1.2rem 2.1rem; margin: 0 0 1.15rem 1.25rem;
+  box-shadow: 0 18px 55px -46px var(--ink);
+}
+div[class*="st-key-result_card_"]::after {
+  content: ""; position: absolute; left: -1.28rem; top: 2.5rem; bottom: -1.35rem;
+  width: 2px; background: var(--line-strong);
+}
+div[class*="st-key-result_card_2"]::after { display: none; }
+.aven-result-marker {
+  position: absolute; z-index: 2; left: -2.08rem; top: 1.3rem;
+  width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--card); color: var(--accent); border: 2px solid var(--accent);
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+}
+div[class*="st-key-result_card_0"] { border-color: #9ecac2; box-shadow: 0 20px 60px -44px var(--accent); }
+div[class*="st-key-result_card_0"] .aven-result-marker { background: var(--accent); color: white; }
 
 .aven-pulse-dot {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor;
@@ -501,6 +547,19 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
 .stButton > button[kind="primary"]:hover { background: var(--accent-deep) !important; border-color: var(--accent-deep) !important; }
 :focus-visible { outline: 3px solid var(--accent) !important; outline-offset: 2px; }
 
+/* Big, unmissable hero call-to-action — the one thing a first-time visitor should tap. */
+.st-key-hero_cta { display: flex; justify-content: center; margin-top: 0.4rem; }
+.st-key-hero_cta button {
+  min-height: 58px !important; padding: 0 2.4rem !important;
+  font-size: 1.02rem !important; font-weight: 800 !important; letter-spacing: 0.01em !important;
+  background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important;
+  box-shadow: 0 16px 34px -16px var(--accent) !important;
+}
+.st-key-hero_cta button:hover {
+  background: var(--accent-deep) !important; border-color: var(--accent-deep) !important;
+  transform: translateY(-2px) !important;
+}
+
 /* ---------- Profiles ---------- */
 .aven-rating-badge {
   font-size: 0.8rem; font-weight: 700; color: var(--accent); vertical-align: middle;
@@ -515,7 +574,7 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
   border-radius: 10px; padding: 0.7rem 0.95rem; font-size: 0.82rem; margin: 0.4rem 0 1rem 0;
 }
 .aven-profile-head { margin: 0.4rem 0 1.4rem 0; }
-.aven-profile-card {
+div[class*="st-key-saved_plan_"] {
   background: var(--card); border: 1px solid var(--line); border-left: 2px solid var(--accent);
   border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 0.8rem;
 }
@@ -543,11 +602,19 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
 }
 
 @media (max-width: 720px) {
-  .aven-home-proof-grid { grid-template-columns: 1fr; margin-top: 0.5rem; }
+  .block-container { padding-left: 1rem; padding-right: 1rem; }
+  .aven-hero-full { padding-top: 6.6rem; }
+  .aven-hero-example { grid-template-columns: 1fr; }
+  .aven-hero-example > b { justify-content: center; transform: rotate(90deg); height: 22px; }
+  .aven-home-proof-grid { grid-template-columns: 1fr; gap: 1.6rem; }
+  .aven-home-proof-grid::before { display: none; }
   .aven-about-points { grid-template-columns: 1fr; }
   .aven-about-point, .aven-about-point:not(:last-child), .aven-about-point:not(:first-child) {
     border-right: none; padding-left: 0; padding-right: 0;
   }
+  div[class*="st-key-result_card_"] { margin-left: 0.7rem; padding-left: 1.2rem; }
+  .aven-result-marker { left: -1.5rem; width: 30px; height: 30px; }
+  div[class*="st-key-result_card_"]::after { left: -0.72rem; }
 }
 </style>
 """
@@ -596,11 +663,6 @@ def quality_note_html(line: str, *, sparse: bool = False) -> str:
     return f'<div class="aven-quality-note{" sparse" if sparse else ""}">{escape(line)}</div>'
 
 
-def card_classes(index: int) -> str:
-    rank = min(index, 2)
-    return f"aven-card aven-reveal rank-{rank} stagger-{rank}"
-
-
 # A compact heartbeat glyph used as Aven's wordmark accent; beats on a lub-dub
 # rhythm via the .aven-logo-pulse animation. This is the surviving medical cue.
 LOGO_PULSE_SVG = """
@@ -627,40 +689,3 @@ def marquee_html(phrases: list[str]) -> str:
         f'<div class="aven-marquee-track">{items}{items}</div>'
         "</div>"
     )
-
-
-# Runs inside the components.html iframe, which shares the parent document's
-# origin, so it can reach into the real page and observe elements there.
-# Elements already on screen at load reveal immediately; anything below the
-# fold reveals as the user scrolls to it. The timeout is a safety net: if the
-# observer never attaches for any reason, content still becomes visible
-# rather than staying hidden forever.
-SCROLL_REVEAL_JS = """
-<script>
-(function () {
-  try {
-    var doc = window.parent.document;
-    var reveal = function (el) { el.classList.add("aven-visible"); };
-    var targets = doc.querySelectorAll(".aven-reveal:not(.aven-observed)");
-    if (!targets.length) { return; }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          reveal(entry.target);
-          io.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.12, rootMargin: "0px 0px -60px 0px" });
-    targets.forEach(function (el) {
-      el.classList.add("aven-observed");
-      io.observe(el);
-    });
-    window.setTimeout(function () {
-      doc.querySelectorAll(".aven-reveal:not(.aven-visible)").forEach(reveal);
-    }, 4000);
-  } catch (err) {
-    // Cross-origin or blocked script access: fail safe, do nothing further.
-  }
-})();
-</script>
-"""

@@ -33,6 +33,49 @@ class StreamlitGoldenPathTests(unittest.TestCase):
         app = AppTest.from_file(str(APP_FILE)).run(timeout=20)
         self.assertEqual(app.exception, [])
 
+    def test_public_brand_is_lowercase_and_promise_is_clear(self) -> None:
+        app = AppTest.from_file(str(APP_FILE)).run(timeout=20)
+
+        self.assertEqual(app.exception, [])
+        self.assertTrue(any(button.label.startswith("aven") for button in app.button))
+        self.assertFalse(any(button.label.startswith("Aven") for button in app.button))
+        rendered = " ".join(markdown.value for markdown in app.markdown)
+        self.assertIn("where to go for care", rendered.lower())
+        self.assertIn("what to do next", rendered.lower())
+
+    def test_guest_saved_plan_is_visible_from_my_plans(self) -> None:
+        app = AppTest.from_file(str(APP_FILE)).run(timeout=20)
+        app.session_state["profile"]["saved"] = [
+            {
+                "facility": "Demo District Hospital",
+                "label": "Best documented fit",
+                "care_task": "known_referral",
+                "travel": "Seeded journey estimate",
+                "next_step": "Call first to confirm the service.",
+            }
+        ]
+        app.session_state["stage"] = "profile"
+        app.run(timeout=20)
+
+        self.assertEqual(app.exception, [])
+        rendered = " ".join(markdown.value for markdown in app.markdown)
+        self.assertIn("Demo District Hospital", rendered)
+        self.assertIn("1 saved plan", rendered)
+
+    def test_intake_uses_one_clear_task_selector(self) -> None:
+        app = AppTest.from_file(str(APP_FILE)).run(timeout=20)
+        app.session_state["stage"] = "intake"
+        app.session_state["preset_care_task"] = "follow_up"
+        app.run(timeout=20)
+
+        self.assertEqual(app.exception, [])
+        selector = next(
+            item for item in app.selectbox if item.label == "What do you need help with?"
+        )
+        self.assertEqual(selector.value, "follow_up")
+        rendered = " ".join(markdown.value for markdown in app.markdown)
+        self.assertIn("Find a doctor", rendered)
+
     def test_confirmed_referral_returns_three_seeded_options(self) -> None:
         response = AvenUiBackend({}).confirm_and_plan(referral_payload())
 
