@@ -2,260 +2,379 @@
 
 Track: **Referral Copilot** (Data Legend / Databricks challenge).
 
-State of play: the frontend is complete and green (136 tests, 214 subtests pass on
-`main`). The backend seam exists and every external integration is a stub that
-falls back to seeded demo data, so the app runs today. Real Databricks tables
-exist — but they were built on `clara`, against a **different schema** than the
-one `main`'s adapters assume. Reconciling that is the critical path.
+**State of play (2026-07-19, reviewed against the working tree):** the code is in
+much better shape than the previous revision of this file claimed. The whole
+evidence pipeline — retrieval, mapping, ranking, tracing, Genie — is *written and
+tested* (164 tests pass). What is missing is not code, it is **configuration and
+a working warehouse**: nothing is actually running against live data, and
+`backend_mode()` returns `demo` on every machine today.
 
 The frontend calls **only** `apps/referral-copilot/src/backend/service.py`. Never
 call a Databricks tool from `app.py` directly.
 
 ---
 
-## ✅ Decision — Model B adopted (2026-07-19)
+## 🚨 The things standing between us and a live demo
 
-Model B (flattened JSON, `workspace.default.facilities_searchable`) is the
-schema of record. Model A (`facilities_normalized` / `facility_claims_evidence`
-/ `facility_trust_assessment` / `facility_source_chunks`) is superseded: those
-tables were never built, and `src/enrichment.py`'s extractor schema already
-matches Model B exactly.
+### Blocker #1 — we moved workspaces, and the new one has no derived tables
 
-Consequences applied:
+The original workspace (`dbc-7e1b9c30`) hit the Free Edition daily compute wall:
 
-- `databricks/01`–`05` are marked superseded in-file (see each file's header).
-  They document a pipeline against tables that don't exist; kept for reference
-  only, not as instructions to run.
-- `src/databricks_adapter.py`'s `_FACILITY_QUERY` / `_NEARBY_FACILITY_QUERY` /
-  `DatabricksFacilityRepository` are Model A and are **not** on the live path
-  (`service.py` never imports them — only `SessionLocalPlanStore` /
-  `FallbackPlanStore` from this module are used, via `ui_contract.py`). Parked
-  rather than deleted: 8 existing tests cover the SQL-building/row-translation
-  logic and deleting it would be a pure regression for zero behavior change,
-  since it was already dead code on the request path.
-- No `latitude`/`longitude` in `facilities_searchable` — distance ranking has
-  no source. Shipping with `distance_km = None` (UI already handles this
-  honestly); geocoding stays P2 (#12), blocked until coords exist.
+```text
+BAD_REQUEST: Sorry, cannot run the resource because you have hit your
+free daily limit. Please come back again tomorrow.
+```
 
----
+`.env` has been repointed to a **new workspace** (`dbc-67dae7f7`). Verified
+today in that new workspace:
 
-## ⚠️ Blocker #1 — two competing data models (historical — resolved above)
+- ✅ Credentials work, quota is fresh, `ai_query` works (tested,
+  `databricks-meta-llama-3-3-70b-instruct`, 2.4s on 2 rows).
+- ✅ The **raw challenge dataset is present**:
+  `databricks_virtue_foundation_dataset_dais_2026.virtue_foundation_dataset.facilities`
+  — **10,088 rows**.
+- ⛔ **`workspace.default` is completely empty.** No `facilities_consolidated`,
+  no `facilities_parsed`, no `facilities_cleaned`, no `facilities_searchable`.
 
-There are two incompatible facility schemas in this repo, and nothing on `main`
-can read the data that actually exists.
+So the entire derived pipeline has to be re-run here: `extract_data.py`
+(`ai_query` consolidation over all 10,088 rows) → `flatten_data.py` /
+`database.py`. **That LLM pass over 10k rows is the single most expensive thing
+in the project and is the most likely cause of the previous workspace's quota
+death.** Treat it as a one-shot: get the SELECT right before running it, and
+persist the result immediately.
 
-| | **Model A — evidence tables** (`main`, `databricks/`) | **Model B — flattened JSON** (`clara`) |
+Two consequences worth deciding explicitly:
+
+- The old workspace may still hold a fully built `facilities_searchable`. If its
+  quota has reset, reading from there is far cheaper than rebuilding. **Check
+  the old workspace before spending the rebuild.**
+- **Do not let the judged demo depend on a live warehouse call.** Cache a real
+  sample to a committed fixture (#4) so a mid-presentation quota wall degrades
+  to seeded data instead of breaking the story.
+
+### Blocker #1b — the flattening drops the columns the ranking logic needs
+
+This is new, and it invalidates a "wontfix" the previous TODO had recorded.
+
+The raw `facilities` table carries columns `facilities_searchable` **throws
+away** in `database.py`'s final `SELECT`. Non-null coverage measured today:
+
+| Raw column | Non-null / 10,088 | Currently used? |
 |---|---|---|
-| Tables | `facilities_normalized`, `facility_claims_evidence`, `facility_trust_assessment`, `facility_source_chunks` | `workspace.default.facilities_searchable` |
-| Grain | one row per **claim/evidence span** | one row per **facility** |
-| Key | `facility_id` / `source_row_id` | `unique_id` |
-| Columns | `capability`, `literal_source_text`, `cited_span`, `source_column`, `lat`, `lon` | `name`, `specialties[]`, `capabilities[]`, `procedures[]`, `equipment[]`, `facility_facts[]`, `data_quality` |
-| Built? | **No** — scripts exist, never run against real data | **Yes** — `flatten_data.py` created it from the Databricks dataset |
-| Read by | `databricks_adapter.py::_FACILITY_QUERY` | `clara1`'s `vector_search.py` |
+| `latitude` / `longitude` | 9,970 (98.8%) | ⛔ dropped |
+| `address_city` | 10,030 | ⛔ dropped |
+| `facilityTypeId` | 10,021 | ⛔ dropped |
+| `operatorTypeId` (public/private) | 10,015 | ⛔ dropped |
 
-**Recommendation: adopt Model B.** It is the one with real rows in it, and — this
-is the important part — `src/enrichment.py`'s documented extractor output schema
-**already matches Model B exactly** (`capabilities`/`procedures`/`equipment` as
-`{claim, evidence[]}`, plus `specialties`, `facility_facts`, `data_quality` with
-`conflicting_claims` / `possible_merged_facility` / `merge_suspicion_reason`).
-The contract everyone was waiting on is, in effect, already agreed — it was just
-never written down in the same place twice.
+Consequences:
 
-Consequences of adopting B:
+- **Distance ranking is NOT blocked** — the previous TODO said "no lat/lon
+  exists, `distance_km` must stay `None`." That was wrong: coordinates exist for
+  98.8% of rows and were simply not carried through the flattening. Fixing the
+  `SELECT` unblocks distance ranking and `agent_bricks`'s hardcoded
+  `distance_km=None`.
+- **`facility_preference` (public/private) is a real ranking input in
+  `domain.py`, and the live path cannot honor it** because `operatorTypeId`
+  never reaches the app. Same for `facility_type=None` in `agent_bricks`.
 
-- `databricks_adapter.py`'s two queries become dead code. Keep the module for
-  `SessionLocalPlanStore` / `FallbackPlanStore`, delete or park the SQL.
-- `databricks/01`–`04` + `05_vector_search_setup.md` describe Model A. Either
-  rewrite them for B or mark them superseded — right now `05` tells you to index
-  `facility_source_chunks`, which does not exist.
-- **No `latitude`/`longitude` in `facilities_searchable`.** Distance ranking has
-  no source. Either add coords to the table or ship with distance honestly
-  undocumented (the UI already handles `distance_km = None`).
+Fix: carry `latitude`, `longitude`, `address_city`, `facilityTypeId`,
+`operatorTypeId` through into `facilities_searchable` (join back to raw on
+`unique_id`), then populate them in `agent_bricks._assess_row`.
 
----
+### Blocker #1c — the raw dataset has column-misaligned rows
 
-## ⚠️ Blocker #2 — `clara1`'s vector_search will crash the app
+`SELECT DISTINCT operatorTypeId` returns, alongside the expected `private` /
+`public` / `government`, values that are plainly from **other columns**:
 
-`origin/clara1` (85990e8) is the only real retrieval code written, and it is the
-right idea, but it cannot merge as-is. Three defects:
-
-1. **Wrong import.** `from databricks.ai_search import VectorSearchClient` — the
-   package is `databricks-vectorsearch`, module `databricks.vector_search.client`.
-   It is also still commented out in `requirements.txt`.
-2. **Config fields that don't exist.** Uses `config.workspace_url` and
-   `config.databricks_token`; `BackendConfig` has neither, **by design** — its
-   docstring states secrets are not read there because the Databricks App
-   identity authorizes calls. Adding a PAT would regress that decision.
-3. **Client built in `__init__`.** `service.py` instantiates
-   `VectorSearchClient(_CONFIG)` at module import, so any connection failure
-   takes down the entire app — including demo mode. The whole fallback design
-   dies here.
-
-Fix: build the index lazily inside `retrieve()`, wrap in `try/except` → `return
-None`, and authenticate via the app identity (no token in config).
-
----
-
-## ⚠️ Finding — Agent Bricks is much smaller than the old TODO claimed
-
-The old TODO scoped `agent_bricks.assess_claims()` as "call a serving endpoint to
-extract claims and literal spans." **That extraction already happened upstream** —
-it is baked into `consolidated_json` and parsed out by `flatten_data.py`. Rows
-arrive with claims and evidence spans attached.
-
-So `assess_claims` collapses from an LLM integration into a **pure mapper**:
-
-```
-searchable row  →  enrichment.normalize(row)
-                →  pick the claim group matching the requested capability
-                →  domain.evidence_status(span, has_conflict=..., ...)
-                →  FacilityCandidate(facility_id=unique_id, display_name=name, ...)
-                →  missing_fields for every group that came back empty
+```text
+'private', 'public', 'government',
+'81.65721130371094',                                  <- a latitude
+'{"coordinates":[75.57,31.32],"type":"Point"}',       <- the coordinates column
+'["https://www.justdial.com/...", ...]',              <- the source_urls column
+'""retinaAndVitreoretinalOphthalmology""'             <- a specialty
 ```
 
-~60 lines, pure, fully unit-testable, no endpoint required.
-`service._live_plan_routes` already ranks and renders whatever it returns.
-**This is the highest-value remaining task and it is far cheaper than it looks.**
+Some rows are shifted — almost certainly unescaped delimiters in the upstream
+CSV. Anything reading `operatorTypeId` must validate against an allowed set and
+treat everything else as **unknown**, never guess.
 
-Still genuinely needed from a model, if time allows: the **Validator** step —
-re-verifying an extracted span against the facility's raw record. Nothing does
-this today (documented as a known limit in `enrichment._claim_evidence`), and it
-is brief stretch #2.
+Related, and a good demo beat: the first sampled row is `Aravind Eye Hospital`
+with `address_city = 'Hyderabad'` but coordinates `(11.94, 79.49)` — that is
+Tamil Nadu, ~500km from Hyderabad. **City and coordinates contradict each
+other.** This is exactly the "documented vs conflicting" distinction Aven exists
+to surface — do not silently prefer one. It also means distance ranking should
+be derived from coordinates and labelled as such, with the city mismatch shown
+as a conflict rather than resolved behind the user's back.
+
+### Blocker #2 — `has_agent` gates a pure mapper on an endpoint that isn't needed
+
+`AgentBricksClient.assess_claims()` is now a **pure mapper** — no model call, no
+serving endpoint (the extraction happened upstream in the pipeline). But:
+
+```python
+# agent_bricks.py
+def available(self) -> bool:
+    return self._config.has_agent      # -> bool(AVEN_SERVING_ENDPOINT)
+```
+
+and `assess_claims` returns `None` when `available()` is False, which makes
+`_live_plan_routes` fall back to demo. `BackendConfig.mode()` has the same
+phantom requirement:
+
+```python
+return "live" if (self.has_vector_search and self.has_agent) else "demo"
+```
+
+**So even with retrieval fully configured, the live path cannot turn on without
+setting `AVEN_SERVING_ENDPOINT` to a value nothing reads.** This is the single
+cheapest fix in the repo and it is currently a hard blocker on `live`.
+
+Fix: drop the gate from the mapper (`available()` → `True`, or delete the check),
+and redefine `mode()` as "live once retrieval is configured". Re-gate on
+`has_agent` only if/when the Validator (#7) actually calls a served model.
+
+### Blocker #3 — retrieval is not configured, and the SQL path doesn't exist
+
+`.env` has the vector-search variables **commented out**:
+
+```
+# AVEN_VECTOR_SEARCH_ENDPOINT=
+# AVEN_VECTOR_SEARCH_INDEX=
+```
+
+→ `has_vector_search` is False → `retrieve()` returns `None` → demo mode, always.
+The index described in `databricks/05_vector_search_setup.md` has (as far as this
+review can tell) never been created against the real table.
+
+Meanwhile `.env` advertises a path that **does not exist in the codebase**:
+
+```
+# --- SQL warehouse (used by src/backend/sql_search.py) ---
+# --- Optional: AI Search. Leave unset to run on SQL retrieval alone. ---
+```
+
+There is no `src/backend/sql_search.py`. The SQL warehouse *is* configured and
+its credentials work; Vector Search is *not* configured. So the comment has it
+exactly backwards relative to what's implemented.
 
 ---
+
+## Priority order to finish the product
+
+### P0 — get to a live, judge-proof demo
+
+0. **Check the old workspace for a surviving `facilities_searchable` before
+   rebuilding.** If `dbc-7e1b9c30`'s quota has reset and the table is intact,
+   copying/reading it is dramatically cheaper than re-running the 10k-row
+   `ai_query` pass. Decide this first — it changes everything below it.
+
+1. **Rebuild the derived tables in the new workspace (Blocker #1),** if #0 says
+   we must. Order: `extract_data.py` → `database.py`. Before running the
+   expensive pass, **fix the final `SELECT` to carry `latitude`, `longitude`,
+   `address_city`, `facilityTypeId`, `operatorTypeId`** (Blocker #1b) — getting
+   this wrong means paying for the LLM pass twice. Validate `operatorTypeId`
+   against `{public, private, government}` and map anything else to unknown
+   (Blocker #1c).
+
+2. **Un-gate the mapper (Blocker #2).** ~5 lines in `agent_bricks.py` +
+   `config.py::mode()`. Update `test_agent_bricks.py` / any `mode()` test.
+   Nothing else can show `live` until this lands.
+
+2. **Land `src/backend/sql_search.py` — retrieval over the warehouse.**
+   This is the *reliable* live path: the warehouse credentials already work,
+   whereas Vector Search needs an endpoint we have not stood up. Query
+   `workspace.default.facilities_searchable` filtered on capability, return rows
+   in the same shape `vector_search.retrieve()` returns, so `agent_bricks` and
+   `service` need no changes. Must return `None` on any failure.
+   - Do **not** reuse root `database.py::build_query` — it is broken (see #10).
+   - Wire `service.py` to try Vector Search first, then SQL, then demo.
+
+3. **Create the Vector Search index (rubric points).** The brief explicitly
+   rewards Mosaic AI Vector Search and `vector_search.py` is already written
+   correctly against Model B. Follow `databricks/05_vector_search_setup.md`
+   using the corrected source table (`facilities_searchable`, PK `unique_id`).
+   Then set `AVEN_VECTOR_SEARCH_ENDPOINT` / `AVEN_VECTOR_SEARCH_INDEX`.
+   Blocked on quota (#1). If Free Edition won't allow the endpoint, #2 carries
+   the demo and we say so honestly.
+
+4. **Capture a real-row fixture and prove the pipeline on it.** Pull ~20 real
+   rows once, commit as a test fixture, and add an end-to-end test:
+   fixture rows → `assess_claims` → `build_shortlist` → display dicts. This is
+   what makes the pipeline *demonstrably* real even if the warehouse is
+   throttled at judging time, and it's the insurance policy for #1.
+
+5. **Run the golden path end to end with retrieval on** and confirm the UI badge
+   flips to "Live Databricks evidence" (`app.py:1005`). Until someone has seen
+   that, "live" is a claim, not a fact.
+
+### P1 — makes the demo credible
+
+6. **Uncomment `mlflow>=3.0` in `apps/referral-copilot/requirements.txt`.**
+   `tracing.py` is fully written and every pipeline stage already opens a span
+   with inputs/outputs — but the dependency is still commented out, so the trace
+   view is a **guaranteed no-op** even with `AVEN_MLFLOW_EXPERIMENT` set. One
+   line unlocks brief stretch #1, which the rubric explicitly rewards.
+
+7. **Validator / self-correction** (brief stretch #2) — re-verify each extracted
+   span against the facility's raw record inside `agent_bricks`. Nothing does
+   this today (documented limit in `enrichment._claim_evidence` and in
+   `agent_bricks`'s module docstring). This is the one place a served model is
+   genuinely warranted — and it would give `AVEN_SERVING_ENDPOINT` a real job.
+
+8. **Native review of the machine-drafted translations.** `localization.py`
+   calls them *approved*; they are not. Highest priority: the five
+   `emergency_*` keys — machine-drafted safety copy is a real risk, not polish.
+   Needs a Hindi and a Marathi speaker. **Still blocked — no native reviewer
+   available.** Also still hardcoded English: the login popover, profile page,
+   saved-plans, and blocklist screens (`app.py` around `show_account_control`,
+   `show_profile`, blocklist/rating captions).
+
+9. **Resolve the auth/persistence conflict.** `auth.py` (pseudonymous owner ID,
+   never stores email) vs `app.py::do_login` (stores name + email) vs
+   `SessionLocalPlanStore` vs `src/profiles.py`. See
+   `docs/security/login-and-persistence-audit.md`. **Team decision needed** —
+   the one item nobody can unblock alone.
+
+10. **Fix or delete root `database.py`.** `build_query` is broken two ways:
+    the quoting is malformed — `"', '".join(...)` interpolated bare produces
+    `arrays_overlap(specialties, a', 'b)` — and it calls `arrays_overlap` on
+    `procedures`, which is `ARRAY<STRUCT<claim, evidence>>`, not an array of
+    strings, so it cannot match. It is not imported by the app. Fold the working
+    idea into `sql_search.py` (#2) and delete this, rather than leaving a broken
+    query builder that looks usable.
+
+### P2 — if time allows
+
+11. **Lakebase** (`lakebase.py`) — still a pass-through to local JSON; both
+    methods are `if self.available(): pass`. UPSERT/read profile keyed by
+    identity, keep local JSON as an offline mirror.
+12. **Genie is already done** — `genie.py` is a complete implementation
+    (conversation start/continue, SQL + rows extraction, returns `None` on any
+    failure). It only needs `AVEN_GENIE_SPACE_ID` set and a Genie space created
+    to light up. No code work. *Surface it in the UI* — nothing calls
+    `service.ask_data_question()` from `app.py` yet, so a finished feature is
+    currently invisible to judges. Cheap win.
+13. **Distance ranking — promoted, no longer blocked.** Coordinates exist for
+    98.8% of raw rows (Blocker #1b); they were dropped in flattening, not
+    absent. Once carried through, populate `distance_km` in
+    `agent_bricks._assess_row` (haversine against the requested location) and
+    drop the "Distance not documented" fallback string in `service.py` for rows
+    that do have coordinates. Show the city/coordinate conflict (Blocker #1c)
+    rather than silently trusting either. Similarly populate `facility_type`
+    from `facilityTypeId` / `operatorTypeId` so `facility_preference` actually
+    influences the live ranking.
+14. **Emergency question is not universal.** The intake panel short-circuits on
+    its own checkbox and the urgency slider only offers Routine/Soon/Urgent, so
+    `urgency == "emergency"` cannot be selected; the `ui_contract` emergency
+    branch is a backstop only.
+15. **Ratings/blocklist → trust.** Today the blocklist only filters the UI.
+    Decide whether "never refer me here" and low ratings feed ranking — kept
+    strictly separate from facility evidence so it can never fabricate
+    capability.
+16. **`vaccination` capability** — present in `demo_adapter.CARE_TASKS` and
+    `domain._CARE_TASKS`; confirm the dataset expresses immunization as a
+    capability/service string so retrieval can match it.
+
+---
+
+## ✅ Already done (was listed as outstanding in the previous revision)
+
+The old file's P0.2–P0.4 and several P1/P2 items have shipped. Recorded here so
+nobody re-does them:
+
+| Item | Status |
+|---|---|
+| Merge `clara` (`extract_data.py`, `flatten_data.py`, `database.py`) | ✅ merged to `main` |
+| `vector_search.retrieve()` — all three Blocker #2 defects | ✅ fixed: correct `databricks.vector_search.client` import, lazy index build in `_get_index()`, no token in config, `try/except → None` |
+| `databricks-vectorsearch` in requirements | ✅ uncommented |
+| `agent_bricks.assess_claims()` as row → `FacilityCandidate` mapper | ✅ written + tested (`test_agent_bricks.py`) |
+| MLflow tracing wired through the pipeline | ✅ code done (spans + inputs/outputs at every stage); ⚠️ dep still commented out — see #6 |
+| Genie `ask()` | ✅ fully implemented, not a stub — see #12 |
+| Dead `LANDING_COPY` / `tagline` / `promise` / `vitals` strings | ✅ removed |
+| Emergency warning + confirmation summary routed through `tx()` | ✅ done |
+
+## ✅ Decision — Model B is the schema of record
+
+`workspace.default.facilities_searchable` (flattened JSON, one row per facility,
+key `unique_id`) is the schema of record. Model A (`facilities_normalized` /
+`facility_claims_evidence` / `facility_trust_assessment` /
+`facility_source_chunks`) is superseded — those tables were never built, and
+`src/enrichment.py`'s extractor schema already matches Model B exactly.
+
+- `databricks/01`–`05` are marked superseded in-file; reference only, not
+  instructions to run.
+- `src/databricks_adapter.py`'s `_FACILITY_QUERY` / `_NEARBY_FACILITY_QUERY` /
+  `DatabricksFacilityRepository` are Model A and **not** on the live path
+  (`service.py` imports only `SessionLocalPlanStore` / `FallbackPlanStore` from
+  it, via `ui_contract.py`). Parked, not deleted: 8 tests cover the
+  SQL-building/row-translation logic and it was already dead code on the
+  request path.
+- ⚠️ The earlier note that Model B "has no `latitude`/`longitude`" was **true of
+  the flattened table but false of the source** — the coordinates exist upstream
+  and were dropped in flattening. See Blocker #1b and #13.
 
 ## Where things live
 
 | Concern | File | Status |
 |---|---|---|
-| Config from env | `src/backend/config.py` | ✅ reads env, treats `TODO_...` as unset |
-| Service facade | `src/backend/service.py` | ✅ live path written, falls back to demo |
-| Vector Search | `src/backend/vector_search.py` | ⛔ stub on `main`; draft on `clara1`, see Blocker #2 |
-| Agent Bricks | `src/backend/agent_bricks.py` | ⛔ stub → becomes a mapper, see above |
-| Genie | `src/backend/genie.py` | ⛔ stub → returns `None` |
-| MLflow 3 tracing | `src/backend/tracing.py` | ✅ no-op until configured |
-| Lakebase | `src/backend/lakebase.py` | ✅ local-JSON fallback |
+| Config from env | `src/backend/config.py` | ⚠️ `mode()` has the phantom `has_agent` gate (#1 above) |
+| Service facade | `src/backend/service.py` | ✅ live path + demo fallback + spans |
+| Vector Search | `src/backend/vector_search.py` | ✅ code done; ⛔ index/env not configured |
+| SQL retrieval | `src/backend/sql_search.py` | ⛔ **does not exist** — see P0.2 |
+| Agent Bricks | `src/backend/agent_bricks.py` | ✅ mapper done; ⚠️ gated on a phantom endpoint |
+| Genie | `src/backend/genie.py` | ✅ done; not surfaced in the UI |
+| MLflow 3 tracing | `src/backend/tracing.py` | ✅ done; dep commented out |
+| Lakebase | `src/backend/lakebase.py` | ⛔ still local-JSON pass-through |
 | Domain rules / ranking | `src/domain.py` | ✅ done (pure) |
-| Databricks SQL repo | `src/databricks_adapter.py` | ⚠️ queries Model A tables that don't exist |
+| Databricks SQL repo | `src/databricks_adapter.py` | 🅿️ Model A, parked, off the live path |
 | Seeded demo data | `src/demo_adapter.py` | ✅ fallback |
 | UI façade | `src/ui_contract.py` | ✅ sole planning entry point; safety gates run |
-| Translations | `src/localization.py` | ⚠️ 21 keys; 15 machine-drafted, unreviewed |
+| Translations | `src/localization.py` | ⚠️ machine-drafted, unreviewed |
 | Trust receipts | `src/trust.py` | ✅ wired via `enrichment.assess_record()` |
 | Extractor schema | `src/enrichment.py` | ✅ matches the real table (Model B) |
-| Data pipeline | `clara`: `extract_data.py`, `flatten_data.py`, `database.py` | ✅ built the real table; unmerged |
+| Data pipeline | `extract_data.py`, `flatten_data.py` | ✅ on `main`; built the real table |
+| Root query builder | `database.py` | ⛔ broken — see #10 |
 
 ## Environment variables (set as Databricks App resources)
 
 All optional; blank or `TODO_...` = that tool is treated as unavailable.
 
 ```
-DATABRICKS_SERVER_HOSTNAME     # SQL warehouse
-DATABRICKS_HTTP_PATH           # SQL warehouse
-AVEN_CATALOG / AVEN_SCHEMA     # Unity Catalog location (clara used workspace/default)
-AVEN_VECTOR_SEARCH_ENDPOINT    # Mosaic AI Vector Search endpoint
-AVEN_VECTOR_SEARCH_INDEX       # index over facilities_searchable
-AVEN_SERVING_ENDPOINT          # Agent Bricks / FM serving endpoint
-AVEN_GENIE_SPACE_ID            # Genie space over the facility tables
-AVEN_LAKEBASE_URL              # Lakebase Postgres connection
-AVEN_MLFLOW_EXPERIMENT         # MLflow experiment path
+DATABRICKS_SERVER_HOSTNAME     # SQL warehouse            ✅ set locally, works
+DATABRICKS_HTTP_PATH           # SQL warehouse            ✅ set locally, works
+AVEN_CATALOG / AVEN_SCHEMA     # Unity Catalog (workspace/default)
+AVEN_VECTOR_SEARCH_ENDPOINT    # Mosaic AI Vector Search  ⛔ commented out
+AVEN_VECTOR_SEARCH_INDEX       # index over facilities_searchable  ⛔ commented out
+AVEN_SERVING_ENDPOINT          # only needed once the Validator (#7) lands
+AVEN_GENIE_SPACE_ID            # Genie space              ⛔ unset; code is ready
+AVEN_LAKEBASE_URL              # Lakebase Postgres        ⛔ unset
+AVEN_MLFLOW_EXPERIMENT         # MLflow experiment path   ⛔ unset
 ```
 
-Note `clara`'s scripts read `SERVER_HOSTNAME` / `HTTP_PATH` / `ACCESS_TOKEN`
-instead — standalone scripts with a PAT, fine for offline table-building, but they
-must not become the app's auth path.
-
-`service.backend_mode()` returns `"live"` once Vector Search **and** Agent Bricks
-are configured; otherwise `"demo"` (the UI shows an honest banner).
-
----
-
-## Priority order to finish the product
-
-**P0 — the demo-critical path (live data end to end)**
-
-1. **Decide Model A vs Model B** (recommend B). Write the chosen schema down once,
-   here, and delete the loser. Everything below is blocked on this.
-2. **Merge `clara`** so `extract_data.py` / `flatten_data.py` / `database.py` are on
-   `main` and the pipeline that produced the table is reproducible.
-3. **Land `vector_search.retrieve()`** — take `clara1`'s query shape, fix the three
-   defects in Blocker #2, uncomment `databricks-vectorsearch` in `requirements.txt`.
-   Must return `None` on any failure.
-4. **Land `agent_bricks.assess_claims()`** as the row → `FacilityCandidate` mapper
-   described above, with unit tests over a couple of captured real rows. After 3+4,
-   `backend_mode()` reports `live` and the pipeline is real end to end.
-
-**P1 — makes the demo credible**
-
-5. **MLflow 3 tracing** (`tracing.py`) — attach inputs/outputs + token-cost
-   attributes per span so extraction → scoring → ranking shows **with receipts**
-   (brief stretch #1). Cheap, and it is explicitly rewarded by the rubric.
-6. **Native review of the machine-drafted translations (now 17 keys, was 15).**
-   `localization.py` is called *approved* translations and they are not
-   approved. Highest priority: the five `emergency_*` keys (2 more were added
-   2026-07-19 — see #7 — to stop `show_intake()`'s emergency warning/checkbox
-   from hardcoding English) — machine-drafted safety copy is a real risk, not a
-   polish item. Needs a Hindi and a Marathi speaker. **Still blocked — no
-   native reviewer available in this session.**
-7. **Language picker gap, corrected and partly closed (2026-07-19).** This item
-   was stale: `LANDING_COPY` doesn't exist (landing hero/about/tiles copy is in
-   `UI_COPY` and was already fully translated for hi/mr), and most of
-   `show_intake()` already used `tx()`. What was actually true and is now
-   fixed: `STRINGS["tagline"]`/`["promise"]`/`["vitals"]` were dead (duplicated
-   the already-rendered `hero_tagline`/`hero_sub`, "vitals" had no render slot)
-   — removed rather than given a new UI slot. The emergency intake warning +
-   checkbox in `show_intake()` were hardcoded English — now routed through
-   `safety_copy()` via two new governed keys (see #6). The confirmation
-   summary sentence and its caption/"See all fields" label were also
-   hardcoded English — now `tx("confirm_summary"/"confirm_caption"/
-   "confirm_see_fields")`.
-   **Still open:** the login popover, profile page, saved-plans, and blocklist
-   screens still hardcode English (`app.py` around `show_account_control`,
-   `show_profile`, blocklist/rating captions) — not touched this pass because
-   it is a large batch of new machine-drafted strings and #6's native-review
-   blocker applies to every one of them.
-8. **Resolve the auth/persistence conflict.** `mariam`'s `auth.py` (pseudonymous
-   owner ID, never stores email) vs `app.py`'s `do_login` (stores name + email) vs
-   `SessionLocalPlanStore` vs `src/profiles.py`. See
-   `docs/security/login-and-persistence-audit.md`. **Team decision needed** — this
-   is the one item nobody can unblock alone.
-
-**P2 — if time allows**
-
-9. **Lakebase** — UPSERT/read profile (history, saved referrals, ratings,
-   blocklist) keyed by identity; keep local JSON as an offline mirror.
-10. **Validator / self-correction** — re-verify each span against the raw record
-    inside `agent_bricks` (brief stretch #2).
-11. **Genie** (`genie.py::ask()`) — NL → governed SQL for planner questions;
-    surface the generated SQL as part of the evidence trail.
-12. **Geocoding / distance** — blocked on coords existing (see Blocker #1).
-13. **Emergency question is not universal.** The intake panel short-circuits on its
-    own checkbox and the urgency slider only offers Routine/Soon/Urgent, so
-    `urgency == "emergency"` cannot be selected; the `ui_contract` emergency branch
-    is a backstop only.
-14. **Ratings/blocklist → trust.** Today the blocklist only filters the UI. Decide
-    whether "never refer me here" and low ratings feed ranking — kept strictly
-    separate from facility evidence so it can never fabricate capability.
-15. **`vaccination` capability** — added to `demo_adapter.CARE_TASKS` and
-    `domain._CARE_TASKS`; confirm the dataset expresses immunization as a
-    capability/service string so retrieval can match it.
-
----
+The root pipeline scripts read `SERVER_HOSTNAME` / `HTTP_PATH` / `ACCESS_TOKEN`
+instead — standalone scripts with a PAT, fine for offline table-building, but
+they must not become the app's auth path.
 
 ## Branch state
 
 | Branch | Contains | Action |
 |---|---|---|
-| `main` | UI + backend seam + safety gates, all tests green | — |
-| `mariam` | merged ✅ | — |
-| `valval`, `valval-pt2` | merged ✅ | — |
-| `clara` | `extract_data.py`, `flatten_data.py`, `database.py` — built the real table | **merge (P0.2)** |
-| `clara1` | `vector_search.py` draft | **fix, then merge (P0.3)** |
+| `main` | UI + backend seam + safety gates | — |
+| `valval-backend` | current working branch | — |
+| `mariam`, `valval`, `valval-pt2`, `clara`, `clara1` | merged ✅ | — |
 
 ## Deploy
 
 - App entry: `apps/referral-copilot/app.py`; deploy config: `app.yaml`.
-- Uncomment deps in `apps/referral-copilot/requirements.txt` (mlflow,
-  databricks-vectorsearch) as each integration lands. Must run on **Databricks
-  Free Edition**.
-- Secrets/resources come from the Databricks App, not source. Do not commit `.env`
-  or `.aven_profiles.json` (already gitignored).
+- Uncomment `mlflow` in `apps/referral-copilot/requirements.txt` (see #6).
+  Must run on **Databricks Free Edition** — mind the daily quota (#1).
+- Secrets/resources come from the Databricks App, not source. Do not commit
+  `.env` or `.aven_profiles.json` (already gitignored).
+
+## Validation
+
+```bash
+python -m unittest discover -s apps/referral-copilot/tests   # 164 tests, green
+python -m compileall -q apps/referral-copilot
+npm run check:elevenlabs
+```
