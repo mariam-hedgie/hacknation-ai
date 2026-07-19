@@ -7,7 +7,7 @@ tracing, Lakebase). Every stub degrades to the existing deterministic demo /
 local behavior when the tool is not configured, so the app runs unchanged
 locally and lights up as each integration is filled in.
 
-See apps/TODO.md for exactly what to implement per tool.
+See TODO.md at the repo root for exactly what to implement per tool.
 """
 
 from . import service
