@@ -11,6 +11,8 @@ from __future__ import annotations
 import sys
 import base64
 import binascii
+import re
+import secrets
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -45,6 +47,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Opaque, server-issued browser session. Used only to keep local-demo visitors
+# on a shared host from seeing each other's scratch plans; it is never an
+# identity and grants no access to authenticated Databricks persistence.
+_DEMO_SESSION_COOKIE = "aven_demo_session"
+_DEMO_SESSION_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
+@app.middleware("http")
+async def issue_demo_session(request: Request, call_next):
+    supplied = request.cookies.get(_DEMO_SESSION_COOKIE, "")
+    session_key = supplied if _DEMO_SESSION_PATTERN.fullmatch(supplied) else secrets.token_urlsafe(24)
+    request.state.demo_session = session_key
+    response = await call_next(request)
+    if session_key != supplied:
+        response.set_cookie(
+            _DEMO_SESSION_COOKIE,
+            session_key,
+            max_age=60 * 60 * 12,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+        )
+    return response
 
 
 def ui_backend() -> AvenUiBackend:
@@ -234,7 +260,10 @@ class FeedbackRequest(BaseModel):
 
 def _request_store(request: Request):
     try:
-        return plan_store_for_headers(dict(request.headers))
+        return plan_store_for_headers(
+            dict(request.headers),
+            session_key=getattr(request.state, "demo_session", ""),
+        )
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail="Sign in through Databricks to use saved plans.") from exc
     except (AuthConfigurationError, RuntimeError, OSError) as exc:

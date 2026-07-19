@@ -1,0 +1,18 @@
+# Minimal dependency set for the self-hosted PUBLIC DEMO build.
+#
+# This is deliberately NOT the Databricks App dependency set. The demo build
+# serves seeded data only and never reaches a Databricks service, so none of
+# the heavy live-mode packages (mlflow, pandas, pyarrow, scikit-learn,
+# databricks-*, streamlit) are installed. Every import of those in
+# src/backend/* is already guarded, so their absence degrades to demo mode
+# rather than failing.
+#
+# Measured: this set installs to ~25 MB, against ~740 MB for the full
+# apps/referral-copilot/requirements.txt.
+#
+# Deploying live Databricks evidence requires requirements.txt, not this file.
+
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.11,<3
+python-dotenv>=1,<2

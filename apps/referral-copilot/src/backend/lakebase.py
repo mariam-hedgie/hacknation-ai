@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import threading
+from collections import OrderedDict
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -20,9 +21,33 @@ from .config import BackendConfig
 
 
 _REQUIRED_DATABASE_ENV = ("PGHOST", "PGDATABASE", "PGUSER", "ENDPOINT_NAME")
-_LOCAL_STATE: dict[str, object] = {}
+
+# Local-demo scratch state, keyed by opaque browser session. A single shared
+# dict would let every visitor to a public demo host read and delete every
+# other visitor's saved plans, so each session gets its own isolated mapping.
+# Bounded because this is process memory on a long-lived host; the oldest
+# session is evicted once the cap is reached.
+_LOCAL_SESSION_CAP = 500
+_LOCAL_SESSIONS: "OrderedDict[str, dict[str, object]]" = OrderedDict()
+_LOCAL_SESSIONS_LOCK = threading.Lock()
 _SCHEMA_LOCK = threading.Lock()
 _SCHEMA_READY = False
+
+
+def _local_session_state(session_key: str) -> dict[str, object]:
+    """Return the isolated scratch mapping for one local-demo session."""
+
+    key = str(session_key or "").strip() or "anonymous"
+    with _LOCAL_SESSIONS_LOCK:
+        state = _LOCAL_SESSIONS.get(key)
+        if state is None:
+            state = {}
+            _LOCAL_SESSIONS[key] = state
+            while len(_LOCAL_SESSIONS) > _LOCAL_SESSION_CAP:
+                _LOCAL_SESSIONS.popitem(last=False)
+        else:
+            _LOCAL_SESSIONS.move_to_end(key)
+        return state
 
 
 def _configured_database(environ: Mapping[str, str]) -> bool:
@@ -153,10 +178,14 @@ CREATE TABLE IF NOT EXISTS access_feedback (
 
 
 class LocalDemoPlanStore:
-    """Process-local, minimized fallback used only in explicit local-demo mode."""
+    """Process-local, minimized fallback used only in explicit local-demo mode.
 
-    def __init__(self) -> None:
-        self._store = SessionLocalPlanStore(_LOCAL_STATE)
+    Scoped to one browser session so visitors to a shared demo host stay
+    isolated from each other. Still process-local: a restart clears everything.
+    """
+
+    def __init__(self, session_key: str = "") -> None:
+        self._store = SessionLocalPlanStore(_local_session_state(session_key))
 
     def save_plan(self, plan: Mapping[str, object]) -> dict[str, object]:
         return self._store.save_plan(_minimise_plan(plan))
@@ -180,14 +209,21 @@ class LocalDemoPlanStore:
 
 
 def plan_store_for_headers(
-    headers: Mapping[str, str], environ: Mapping[str, str] | None = None
+    headers: Mapping[str, str],
+    environ: Mapping[str, str] | None = None,
+    session_key: str = "",
 ) -> tuple[UserIdentity, PersistentSqlPlanStore | LocalDemoPlanStore]:
-    """Resolve server-trusted identity and return its correctly scoped store."""
+    """Resolve server-trusted identity and return its correctly scoped store.
+
+    `session_key` is an opaque, server-issued browser session used only to keep
+    local-demo visitors isolated. It is never an identity: authenticated
+    Databricks owners are always scoped by `owner_id` instead.
+    """
 
     env = os.environ if environ is None else environ
     identity = resolve_identity(headers, env)
     if identity.auth_source == "local_demo":
-        return identity, LocalDemoPlanStore()
+        return identity, LocalDemoPlanStore(session_key)
     if not _configured_database(env):
         raise RuntimeError("Lakebase persistence is required but not configured.")
     executor = LakebasePostgresExecutor(environ=env)

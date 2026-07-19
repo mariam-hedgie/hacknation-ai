@@ -1,0 +1,20 @@
+# One-click Render blueprint for the public demo.
+# Render reads this automatically when you create a Blueprint from the repo.
+# Any other container host (Fly.io, Railway, Hugging Face Spaces) can build the
+# same Dockerfile instead — see docs/self-hosting.md.
+
+services:
+  - type: web
+    name: aven-demo
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/service-status
+    envVars:
+      # Anonymous per-session demo identity. Do not set AVEN_AUTH_MODE to
+      # databricks here: off-platform there is no Databricks proxy, so the
+      # X-Forwarded-User header would be attacker-supplied.
+      - key: AVEN_AUTH_MODE
+        value: local_demo
+      - key: AVEN_ALLOW_LOCAL_DEMO
+        value: "true"
