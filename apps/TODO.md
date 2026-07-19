@@ -89,19 +89,25 @@ Bricks are configured; otherwise `"demo"` (the UI shows an honest banner).
 Restored from `mariam` along with `localization.py` and `trust.py` — five of that
 branch's commits had never landed here. `app.py` now depends on the façade for
 `service_status()`, `travel_capabilities()`, voice status, and the bounded
-feedback vocabulary. Still **unresolved**:
+feedback vocabulary.
 
-- **Planning seam.** The façade's `confirm_and_plan()` is demo-only: it routes to
-  `app_logic.evaluate_demo_request` → `build_demo_options` and never touches
-  `backend/service.py`. Switching the UI to it would drop the live Databricks
-  path; leaving it means the safety gates stay off (below). Likely fix: have
-  `ui_contract` delegate to `backend.service.plan_routes`.
-- **⚠️ Safety gates do not run today.** `show_confirmation` calls
-  `backend.plan_routes` directly, and `validate_confirmed_intake` only executes
-  inside `_live_plan_routes`, which returns `None`. So the emergency,
-  confirm-care-setting, and incomplete-intake branches are unreachable on the
-  demo path — the path the app actually runs on. Fixing the planning seam fixes
-  this.
+- **✅ Planning seam — resolved.** `app_logic.evaluate_confirmed_request` (was
+  `evaluate_demo_request`) now takes an injected `planner`, defaulting to
+  `build_demo_options`. `ui_contract.confirm_and_plan` passes
+  `backend.service.plan_routes`, so the gates live in one place and the live
+  Databricks path is kept — `plan_routes` still falls back to seeded demo
+  options on its own when the pipeline is unavailable.
+- **✅ Safety gates now run.** `show_confirmation` calls
+  `ui_backend().confirm_and_plan()`; only `PROCEED` advances to the results
+  stage, and `show_safety_branch()` renders the other three. The planner is
+  unreachable behind a gate — `tests/test_ui_contract.py` asserts it is never
+  called for a blocked branch, and `test_ui_contract_alignment.py` fails if
+  `app.py` ever calls `backend.plan_routes` directly again.
+  - Note: the `emergency` branch is a backstop, not the primary path. The
+    intake panel still short-circuits on its own checkbox (`app.py`), and the
+    urgency slider offers only Routine/Soon/Urgent, so `urgency == "emergency"`
+    cannot be selected. Making the emergency question universal across care
+    tasks — not just `symptom_first` — is still open.
 - **Persistence and auth conflict.** `SessionLocalPlanStore` (plan_id /
   demo_user_id) vs `src/profiles.py`; `mariam`'s `auth.py` (pseudonymous owner
   ID, never stores email) vs `app.py`'s `do_login` (stores name + email). See
@@ -110,10 +116,13 @@ feedback vocabulary. Still **unresolved**:
 
 ## Frontend follow-ups (small)
 
-- **Intake fields for validation.** `domain.validate_confirmed_intake` needs
-  `medication_name` + `has_current_prescription` (refill) and
-  `has_clinician_order` (lab). Collect these in `show_intake()` and pass them in
-  the `request` dict; map them in `service._intake_from_request`.
+- **✅ Intake fields for validation — done.** `show_intake()` now collects
+  `medication_name` + `has_current_prescription` (refill checkbox) and
+  `has_clinician_order` (lab radio: Yes / Not sure / No, where only an explicit
+  *No* blocks) and passes them in the `request` dict. Labels are translated in
+  all three languages; the radio's stored values stay canonical.
+  `service._intake_from_request` maps them onto `IntakeRequest` too, so the live
+  pipeline's own `validate_confirmed_intake` call sees them.
 - **`vaccination` capability.** Added to `demo_adapter.CARE_TASKS` and
   `domain._CARE_TASKS`. Confirm the dataset expresses immunization as a
   capability/service string so retrieval can match it.

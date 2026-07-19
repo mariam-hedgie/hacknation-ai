@@ -12,7 +12,8 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .app_logic import evaluate_demo_request
+from .app_logic import evaluate_confirmed_request
+from .backend.service import plan_routes
 from .databricks_adapter import (
     ConfigurationError,
     SessionLocalPlanStore,
@@ -41,7 +42,7 @@ class UiPlanResponse:
     """Framework-neutral response consumed by the result and safety screens."""
 
     safety_branch: str
-    options: tuple[dict[str, str], ...] = ()
+    options: tuple[dict[str, Any], ...] = ()
     message: str | None = None
     validation_errors: tuple[str, ...] = ()
 
@@ -67,9 +68,17 @@ class AvenUiBackend:
         return index
 
     def confirm_and_plan(self, confirmed_request: Mapping[str, Any]) -> UiPlanResponse:
-        """Apply the shared blocking gates and return UI-ready demo options."""
+        """Apply the shared blocking gates, then plan through the live backend.
 
-        outcome = evaluate_demo_request(dict(confirmed_request))
+        This is the only planning entry point the UI should use. The gates run
+        first and are blocking; `backend.service.plan_routes` runs only on
+        PROCEED, and itself falls back to seeded demo options whenever the
+        Databricks pipeline is unavailable, so the demo path stays intact.
+        """
+
+        outcome = evaluate_confirmed_request(
+            dict(confirmed_request), planner=plan_routes
+        )
         return UiPlanResponse(
             safety_branch=outcome.safety_branch.value,
             options=outcome.options,

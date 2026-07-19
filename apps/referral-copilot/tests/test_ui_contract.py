@@ -5,11 +5,13 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
+import src.ui_contract as ui_contract  # noqa: E402
 from src.ui_contract import AvenUiBackend  # noqa: E402
 
 
@@ -46,6 +48,49 @@ class PlanningContractTests(unittest.TestCase):
 
         self.assertEqual(result.safety_branch, "emergency")
         self.assertEqual(result.options, ())
+
+    def test_planning_is_delegated_to_the_backend_service(self) -> None:
+        """The façade must not plan from the demo adapter directly, or the live
+        Databricks path is silently dropped."""
+        with mock.patch.object(
+            ui_contract, "plan_routes", return_value=[{"facility": "From service"}]
+        ) as planner:
+            result = AvenUiBackend({}).confirm_and_plan(referral_payload())
+
+        planner.assert_called_once()
+        self.assertEqual(result.options, ({"facility": "From service"},))
+
+    def test_blocked_requests_never_reach_the_planner(self) -> None:
+        """Each gate is blocking, not advisory: no ranking may run behind it."""
+        blocked = {
+            "emergency": {"urgency": "emergency", "emergency_warning_reported": True},
+            "confirm_care_setting": {"care_task": "symptom_first", "capability": ""},
+            "incomplete_intake": {"location": ""},
+        }
+        for branch, overrides in blocked.items():
+            with self.subTest(branch=branch):
+                with mock.patch.object(ui_contract, "plan_routes") as planner:
+                    result = AvenUiBackend({}).confirm_and_plan(
+                        referral_payload() | overrides
+                    )
+
+                planner.assert_not_called()
+                self.assertEqual(result.safety_branch, branch)
+                self.assertEqual(result.options, ())
+                self.assertTrue(result.message)
+
+    def test_refill_without_a_confirmed_prescription_is_blocked(self) -> None:
+        payload = referral_payload() | {
+            "care_task": "refill",
+            "capability": "",
+            "medication_name": "metformin",
+            "has_current_prescription": False,
+        }
+        with mock.patch.object(ui_contract, "plan_routes") as planner:
+            result = AvenUiBackend({}).confirm_and_plan(payload)
+
+        planner.assert_not_called()
+        self.assertEqual(result.safety_branch, "incomplete_intake")
 
     def test_travel_contract_exposes_labels_without_live_price_claims(self) -> None:
         rows = AvenUiBackend({}).travel_capabilities(["car", "train"])

@@ -98,8 +98,9 @@ _LABELS = ("Best documented fit", "Lower-burden route", "Alternative to verify")
 def _intake_from_request(request: dict[str, Any]) -> IntakeRequest:
     """Map the UI's confirmed request dict onto the domain IntakeRequest.
 
-    TODO(intake): collect medication_name / has_current_prescription (refill) and
-    has_clinician_order (lab) in the intake form so those tasks validate cleanly.
+    The task-specific fields matter: build_shortlist re-runs
+    validate_confirmed_intake, so dropping them here would fail every refill on
+    the live path even though the intake form collects them.
     """
     return IntakeRequest(
         care_task=str(request.get("care_task") or "known_referral"),
@@ -110,6 +111,10 @@ def _intake_from_request(request: dict[str, Any]) -> IntakeRequest:
         budget_sensitivity=str(request.get("budget_sensitivity") or "medium").lower(),
         facility_preference=str(request.get("facility_preference") or "either").lower(),
         language_preference=(request.get("language") or None),
+        medication_name=(request.get("medication_name") or None),
+        has_current_prescription=request.get("has_current_prescription"),
+        has_clinician_order=request.get("has_clinician_order"),
+        emergency_warning_reported=bool(request.get("emergency_warning_reported", False)),
         user_confirmed=True,
     )
 

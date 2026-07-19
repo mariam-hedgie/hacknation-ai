@@ -127,6 +127,10 @@ UI_COPY = {
         "specifics": "विवरण",
         "location_label": "आप कहां से शुरू कर रहे हैं?",
         "location_ph": "शहर, ज़िला या पिनकोड",
+        "refill_rx_label": "मेरे पास इस दवा का मौजूदा पर्चा या दोबारा लेने की सलाह है",
+        "refill_rx_help": "Aven दवा दोबारा लेने का मार्ग तभी बना सकता है जब मौजूदा पर्चे की पुष्टि हो। हम खुराक नहीं बदलते और दवा नहीं लिखते।",
+        "lab_order_label": "क्या किसी चिकित्सक ने यह जांच लिखी है?",
+        "lab_order_options": {"yes": "हां", "unsure": "मुझे यकीन नहीं", "no": "नहीं"},
         "extra_label": "और कुछ जो हमें जानना चाहिए? (वैकल्पिक)",
         "extra_ph": "उदाहरण: डॉक्टर ने हृदय रोग विशेषज्ञ से मिलने को कहा है और मैं दूर यात्रा नहीं कर सकता।",
         "prefs": "आपकी प्राथमिकताएं",
@@ -182,6 +186,10 @@ UI_COPY = {
         "specifics": "तपशील",
         "location_label": "तुम्ही कुठून सुरुवात करत आहात?",
         "location_ph": "शहर, जिल्हा किंवा पिनकोड",
+        "refill_rx_label": "माझ्याकडे या औषधाचे सध्याचे प्रिस्क्रिप्शन किंवा पुन्हा घेण्याची सूचना आहे",
+        "refill_rx_help": "सध्याच्या प्रिस्क्रिप्शनची पुष्टी झाल्यावरच Aven औषध पुन्हा घेण्याचा मार्ग ठरवू शकते. आम्ही मात्रा बदलत नाही आणि औषध लिहून देत नाही.",
+        "lab_order_label": "डॉक्टरांनी ही तपासणी सांगितली आहे का?",
+        "lab_order_options": {"yes": "होय", "unsure": "मला खात्री नाही", "no": "नाही"},
         "extra_label": "आणखी काही आम्हाला माहीत असावे? (ऐच्छिक)",
         "extra_ph": "उदाहरण: डॉक्टरांनी हृदयरोग तज्ज्ञांकडे जाण्यास सांगितले आहे आणि मी दूर प्रवास करू शकत नाही.",
         "prefs": "तुमच्या पसंती",
@@ -237,6 +245,10 @@ UI_COPY = {
         "specifics": "The specifics",
         "location_label": "Where are you starting from?",
         "location_ph": "City, district, or pincode",
+        "refill_rx_label": "I have a current prescription or refill instruction for this medicine",
+        "refill_rx_help": "Aven can only plan a refill route when a current prescription is confirmed. We do not change doses or prescribe.",
+        "lab_order_label": "Has a clinician ordered this test?",
+        "lab_order_options": {"yes": "Yes", "unsure": "I am not sure", "no": "No"},
         "extra_label": "Anything else we should know? (optional)",
         "extra_ph": "Example: My doctor said I need a cardiology visit and I cannot travel far.",
         "prefs": "Your preferences",
@@ -376,6 +388,8 @@ def initialize_state() -> None:
         "user": None,  # None = guest; otherwise {"name", "email"}
         "profile": profiles.empty_profile(),
         "language_notice": None,
+        "plan_response": None,  # last confirm_and_plan outcome, incl. safety branch
+        "emergency_reported": False,
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -383,12 +397,12 @@ def initialize_state() -> None:
 
 def ui_backend() -> AvenUiBackend:
     """The shared UI façade (src/ui_contract.py). Cheap to build — it only seeds
-    two session keys — so views can just call it. Status, travel truth, and
-    approved copy come from here rather than being reimplemented in the view.
+    two session keys — so views can just call it. Status, travel truth, approved
+    copy, and planning all come from here rather than being reimplemented here.
 
-    Planning still goes through backend.service: the façade's confirm_and_plan is
-    demo-only and would drop the live Databricks path. That seam is unresolved —
-    see apps/TODO.md.
+    confirm_and_plan() is the single planning entry point: it runs the domain
+    safety gates and then delegates to backend.service.plan_routes, which keeps
+    the live Databricks path and falls back to seeded demo options on its own.
     """
     return AvenUiBackend(st.session_state)
 
@@ -444,6 +458,7 @@ def do_logout() -> None:
 def go_to_intake(care_task: str | None = None) -> None:
     """Enter the intake flow, optionally preselecting a care task from a tile."""
     st.session_state.preset_care_task = care_task
+    st.session_state.plan_response = None
     st.session_state.stage = "intake"
     st.rerun()
 
@@ -670,6 +685,7 @@ def show_intake() -> None:
     if care_task == "symptom_first":
         st.warning("If you think this may be an emergency, seek urgent local help now. Aven cannot assess or diagnose symptoms.")
         emergency = st.checkbox("I have a possible emergency warning sign or need immediate help")
+        st.session_state.emergency_reported = emergency
         if emergency:
             show_emergency_panel()
             return
@@ -683,6 +699,27 @@ def show_intake() -> None:
         st.markdown(f'<div class="aven-section-title">{tx("specifics")}</div>', unsafe_allow_html=True)
         detail = st.text_input(meta["detail_label"], placeholder=next_question(care_task))
         location = st.text_input(tx("location_label"), placeholder=tx("location_ph"))
+
+        # Task-specific fields the domain gates require. Without these,
+        # validate_confirmed_intake blocks every refill, and a lab request can
+        # never state whether an order exists. Asked here, before confirmation,
+        # so the user fixes it in the form rather than on a rejected plan.
+        has_prescription = None
+        has_order = None
+        if care_task == "refill":
+            has_prescription = st.checkbox(tx("refill_rx_label"))
+            st.caption(tx("refill_rx_help"))
+        elif care_task == "lab":
+            order_choice = st.radio(
+                tx("lab_order_label"),
+                options=["yes", "unsure", "no"],
+                horizontal=True,
+                format_func=lambda value: tx("lab_order_options")[value],
+            )
+            # Only an explicit "no" blocks: "not sure" stays None so an unsure
+            # user is never turned away for a fact they cannot confirm.
+            has_order = {"yes": True, "no": False, "unsure": None}[order_choice]
+
         message = st.text_area(tx("extra_label"), placeholder=tx("extra_ph"))
 
         st.markdown(f'<div class="aven-section-title">{tx("prefs")}</div>', unsafe_allow_html=True)
@@ -717,6 +754,12 @@ def show_intake() -> None:
             "budget_sensitivity": budget.lower(),
             "facility_preference": preference.lower(),
             "language": language or "not specified",
+            "medication_name": detail if care_task == "refill" else None,
+            "has_current_prescription": has_prescription,
+            "has_clinician_order": has_order,
+            # Recorded even though the intake panel already short-circuits on it,
+            # so the domain gate stays authoritative on the confirm path too.
+            "emergency_warning_reported": bool(st.session_state.get("emergency_reported")),
         }
         st.session_state.stage = "confirm"
         st.rerun()
@@ -753,16 +796,52 @@ def show_confirmation() -> None:
     left, right = st.columns(2)
     with left:
         if st.button(tx("confirm_edit"), use_container_width=True):
+            st.session_state.plan_response = None
             st.session_state.stage = "intake"
             st.rerun()
     with right:
         if st.button(tx("confirm_go"), type="primary", use_container_width=True):
-            st.session_state.options = backend.plan_routes(request)
-            profiles.add_history(current_profile(), request)
-            persist_profile()
-            st.session_state.stage = "results"
+            # Planning goes through the façade so the domain safety gates run
+            # before any ranking. Only PROCEED reaches the results stage.
+            response = ui_backend().confirm_and_plan(request)
+            st.session_state.plan_response = response
+            if response.safety_branch == "proceed":
+                st.session_state.options = response.options
+                profiles.add_history(current_profile(), request)
+                persist_profile()
+                st.session_state.stage = "results"
             st.rerun()
+
+    show_safety_branch(st.session_state.get("plan_response"))
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+def show_safety_branch(response) -> None:
+    """Render the blocking outcome of a non-PROCEED gate.
+
+    Each branch stops ordinary results: the user is told what to do instead,
+    never shown facility options alongside the block.
+    """
+    if response is None or response.safety_branch == "proceed":
+        return
+
+    if response.safety_branch == "emergency":
+        show_emergency_panel()
+        return
+
+    if response.safety_branch == "confirm_care_setting":
+        st.warning(response.message)
+        st.caption(
+            "Tell us the specialty or service you think you need, then confirm again. "
+            "Aven plans access to care and does not diagnose."
+        )
+        return
+
+    if response.safety_branch == "incomplete_intake":
+        st.error(response.message)
+        for problem in response.validation_errors:
+            st.markdown(f"- {problem}")
+        st.caption("Choose “Edit request” to complete the missing details.")
 
 
 def show_enrichment(option: dict) -> None:

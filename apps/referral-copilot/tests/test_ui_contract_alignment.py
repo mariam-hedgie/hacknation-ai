@@ -8,11 +8,13 @@ view drifts back into reimplementing what the façade owns.
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
+from src.domain import SafetyBranch
 from src.localization import SUPPORTED_LANGUAGES, resolve_language
 from src.ui_contract import _FEEDBACK_STATUSES, AvenUiBackend
 
@@ -84,6 +86,35 @@ class CanonicalValueTests(unittest.TestCase):
         label_for = app.scale_labels()
         self.assertEqual(label_for("Soon"), "Soon")
         self.assertEqual(label_for("Unmapped"), "Unmapped")
+
+
+class PlanningSeamTests(unittest.TestCase):
+    """app.py must plan through the façade, which is where the safety gates run.
+
+    Calling backend.plan_routes from a view bypasses validate_confirmed_intake
+    and the emergency branch entirely — the bug this seam was built to close.
+    """
+
+    def test_the_view_never_calls_the_backend_planner_directly(self):
+        source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertNotIn(
+            "backend.plan_routes(",
+            source,
+            "app.py calls backend.plan_routes directly; the domain safety gates "
+            "would not run. Use ui_backend().confirm_and_plan() instead.",
+        )
+
+    def test_every_safety_branch_has_a_view_that_renders_it(self):
+        app = _app_module()
+        for branch in SafetyBranch:
+            with self.subTest(branch=branch.value):
+                response = SimpleNamespace(
+                    safety_branch=branch.value,
+                    message="Blocking message",
+                    validation_errors=("Add a location before searching.",),
+                )
+                # Must not raise: every branch needs a rendering path.
+                app.show_safety_branch(response)
 
 
 class TravelModeTests(unittest.TestCase):
