@@ -26,6 +26,8 @@ from src import enrichment as enrich
 from src import profiles
 from src.backend import service as backend
 from src.demo_adapter import CARE_TASKS, next_question
+from src.localization import SUPPORTED_LANGUAGES, resolve_language
+from src.ui_contract import AvenUiBackend
 from src.styles import (
     CSS,
     ECG_DIVIDER_SVG,
@@ -41,7 +43,22 @@ from src.styles import (
     quality_note_html,
 )
 
-LANGUAGES = {"en": "English", "hi": "हिंदी", "mr": "मराठी"}
+# Language names come from src/localization.py — the module that owns approved
+# translations — so the picker can never drift from what is actually translatable.
+LANGUAGES = SUPPORTED_LANGUAGES
+
+# Bounded feedback vocabulary. Labels are ours; the values must stay inside the
+# façade's accepted statuses (tests/test_ui_contract_alignment.py enforces this),
+# so a future switch to AvenUiBackend.save_feedback needs no data migration.
+FEEDBACK_OPTIONS = {
+    "It was helpful": "helpful",
+    "Something needs correction": "needs_correction",
+    "I am not sure yet": "not_sure",
+    "The service was not available": "service_unavailable",
+    "The price was different": "price_differed",
+    "I went to this facility": "accepted",
+    "I did not go": "not_visited",
+}
 
 STRINGS = {
     "en": {
@@ -156,9 +173,35 @@ def initialize_state() -> None:
         "preset_care_task": None,
         "user": None,  # None = guest; otherwise {"name", "email"}
         "profile": profiles.empty_profile(),
+        "language_notice": None,
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
+
+
+def ui_backend() -> AvenUiBackend:
+    """The shared UI façade (src/ui_contract.py). Cheap to build — it only seeds
+    two session keys — so views can just call it. Status, travel truth, and
+    approved copy come from here rather than being reimplemented in the view.
+
+    Planning still goes through backend.service: the façade's confirm_and_plan is
+    demo-only and would drop the live Databricks path. That seam is unresolved —
+    see apps/TODO.md.
+    """
+    return AvenUiBackend(st.session_state)
+
+
+def apply_language_param() -> None:
+    """Honor `?lang=` but degrade visibly. resolve_language accepts codes, locale
+    variants, and native names; anything else falls back to English *with a
+    message* rather than silently rendering the wrong language."""
+    requested = st.query_params.get("lang")
+    if not requested or st.session_state.get("language_param_seen") == requested:
+        return
+    st.session_state.language_param_seen = requested
+    selection = resolve_language(requested)
+    st.session_state.language = selection.code
+    st.session_state.language_notice = selection.fallback_message
 
 
 # ---------- Profile helpers ----------
@@ -257,10 +300,16 @@ def show_header_bar() -> None:
             )
             if code != st.session_state.language:
                 st.session_state.language = code
+                # An explicit choice supersedes any ?lang= fallback notice.
+                st.session_state.language_notice = None
                 st.rerun()
         idx += 1
         with cols[idx]:
             show_account_control()
+
+    # Rendered outside the sticky container so it reads as a page-level notice.
+    if st.session_state.get("language_notice"):
+        st.info(st.session_state.language_notice)
 
 
 def show_account_control() -> None:
@@ -422,6 +471,10 @@ def show_intake() -> None:
         if emergency:
             show_emergency_panel()
             return
+
+    # Say plainly whether voice input is available instead of leaving its absence
+    # to be discovered. Typed input is always the supported path.
+    st.caption(f"🎤 {ui_backend().service_status()['voice_message']}")
 
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
     with st.form("intake_form"):
@@ -591,6 +644,45 @@ def show_option_card(index: int, option: dict) -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
+# Modes worth stating truth about for care access. Every one is validated by
+# maps.validate_travel_mode inside the façade, so an unsupported mode raises here
+# rather than reaching the user as a fake capability.
+TRAVEL_MODES = ("walk", "bus", "train", "car", "taxi")
+
+
+def show_system_status() -> None:
+    """What is actually connected right now. Capability state only — the façade
+    deliberately exposes no credentials or endpoint identifiers."""
+    status = ui_backend().service_status()
+    rows = [
+        ("Evidence pipeline", "Live Databricks evidence" if backend.backend_mode() == "live"
+         else "Seeded demo data — Vector Search and Agent Bricks are not connected"),
+        ("Routing provider", f"{status['map_provider']}"
+         + (" (live)" if status["map_live_provider"] else " (offline estimates only)")),
+        ("Facility database", f"Databricks SQL {status['databricks_mode']}"),
+        ("Voice input", status["voice_message"]),
+    ]
+    with st.expander("What is connected right now"):
+        for label, value in rows:
+            st.markdown(f'<p class="aven-fact"><strong>{label}:</strong> {value}</p>', unsafe_allow_html=True)
+
+
+def show_travel_truth() -> None:
+    """State per-mode what the routing provider can and cannot answer, so a travel
+    estimate is never mistaken for a live route, fare, or transit status."""
+    capabilities = ui_backend().travel_capabilities(TRAVEL_MODES)
+    with st.expander("What we can and cannot tell you about travel"):
+        st.caption(
+            "Travel figures above are estimates for comparison. None of them is a live "
+            "route, a fare quote, or confirmation that a service is running."
+        )
+        for row in capabilities:
+            st.markdown(
+                f'<p class="aven-fact"><strong>{row["mode"].title()}:</strong> {row["label"]}</p>',
+                unsafe_allow_html=True,
+            )
+
+
 def show_results() -> None:
     request = st.session_state.request
     st.markdown('<div class="aven-section-title">Best next step</div>', unsafe_allow_html=True)
@@ -603,6 +695,8 @@ def show_results() -> None:
             'Every option is labelled as a demo.</div>',
             unsafe_allow_html=True,
         )
+
+    show_system_status()
 
     options = list(st.session_state.options)
     for option in options:
@@ -630,12 +724,15 @@ def show_results() -> None:
     for index, option in enumerate(visible):
         show_option_card(index, option)
 
+    if visible:
+        show_travel_truth()
+
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
     st.markdown('<div class="aven-section-title">Was this plan useful?</div>', unsafe_allow_html=True)
-    feedback = st.radio("Your feedback", ["Helpful", "Needs correction", "Not sure"], horizontal=True)
+    label = st.selectbox("What happened?", options=list(FEEDBACK_OPTIONS))
     note = st.text_input("Optional correction or note")
     if st.button("Save feedback"):
-        st.session_state.feedback = {"status": feedback, "note": note}
+        st.session_state.feedback = {"status": FEEDBACK_OPTIONS[label], "note": note}
         st.success("Feedback saved for this demo session. It does not change facility evidence.")
 
     if st.session_state.saved_plans:
@@ -746,6 +843,7 @@ def main() -> None:
     st.markdown(FONT_IMPORT, unsafe_allow_html=True)
     st.markdown(CSS, unsafe_allow_html=True)
     initialize_state()
+    apply_language_param()
 
     stage = st.session_state.stage
     # Guard: results needs a built request; fall back to intake if navigated
