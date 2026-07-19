@@ -185,6 +185,30 @@ class ShortlistTests(unittest.TestCase):
         self.assertEqual(result.options, ())
         self.assertEqual(result.message, "No documented facility match was found for this confirmed need.")
 
+    def test_known_distances_beyond_the_users_maximum_are_excluded(self) -> None:
+        request = IntakeRequest(
+            care_task="known_referral",
+            confirmed_capability="cardiology",
+            location="Patna",
+            max_distance_km=5,
+            user_confirmed=True,
+        )
+        result = build_shortlist(
+            request,
+            [
+                FacilityCandidate(
+                    "near", "Nearby", "cardiology", EvidenceStatus.DOCUMENTED,
+                    distance_km=4,
+                ),
+                FacilityCandidate(
+                    "far", "Far away", "cardiology", EvidenceStatus.DOCUMENTED,
+                    distance_km=12,
+                ),
+            ],
+        )
+
+        self.assertEqual([option.candidate.facility_id for option in result.options], ["near"])
+
 
 if __name__ == "__main__":
     unittest.main()

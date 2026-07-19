@@ -16,7 +16,8 @@ ElevenLabs. The seeded path stays usable when live services are unavailable.
 
 1. Enter a typed request in English, Hindi, or Marathi.
 2. Choose the task: referral/procedure, refill, lab, symptom-first, or follow-up.
-3. Set urgency, cost sensitivity, travel tolerance, and public/private preference.
+3. Set urgency, maximum distance, usable transport modes, separate travel and
+   care budgets in rupees, and public/private preference.
 4. Review and confirm Aven's structured interpretation.
 5. Compare three clearly labelled options, inspect proof and unknowns, and save
    a choice or correction.
@@ -66,6 +67,13 @@ npm run check:elevenlabs
 
 The ElevenLabs check reports configuration only; it does not print the key.
 
+If `ELEVENLABS_API_KEY` is configured, the intake offers recording and asks
+for explicit consent before sending audio to ElevenLabs. The transcript is
+always returned as editable text for review. If `TAVILY_API_KEY` is configured,
+each result can search for public doctor, fee, contact, and official-source
+candidates. Aven sends only the facility name and confirmed service—not the
+patient narrative or location—and search results do not alter the ranking.
+
 ## Integration modes
 
 | Capability | Live mode | Safe fallback |
@@ -74,6 +82,7 @@ The ElevenLabs check reports configuration only; it does not print the key.
 | Saved plans and feedback | Lakebase or approved Databricks write path | Current Streamlit session |
 | Maps/routes | Restricted Google Maps key | ORS road modes, then offline comparison labels |
 | Voice | Server-side ElevenLabs key | Typed input |
+| Public source discovery | Server-side Tavily key | No external lookup |
 | Languages | English, Hindi, Marathi UI strings | English with a visible fallback notice |
 
 Google supports the broadest planned routing experience. The free fallback
@@ -115,6 +124,7 @@ verified in the team's Free Edition workspace.
 - Official-brief audit: [`docs/compliance/data-legend-official-brief-audit.md`](docs/compliance/data-legend-official-brief-audit.md)
 - Login and persistence security: [`docs/security/login-and-persistence-audit.md`](docs/security/login-and-persistence-audit.md)
 - Login/persistence test evidence: [`docs/testing/login-persistence-security.tdd.md`](docs/testing/login-persistence-security.tdd.md)
+- Planning/accessibility redesign evidence: [`docs/testing/aven-planning-accessibility-redesign.tdd.md`](docs/testing/aven-planning-accessibility-redesign.tdd.md)
 
 ## Known boundaries
 
@@ -123,5 +133,8 @@ verified in the team's Free Edition workspace.
   schemas must be verified in the team's workspace.
 - Voice, routing, geocoding, and external evidence require their corresponding
   server-side credentials.
+- Google sign-in is not configured. The deployed product is designed to use
+  Databricks workspace OAuth; the local profile is a demo convenience, not a
+  production account or durable signup.
 - Symptom-first input may support safe care-setting navigation only; it is not
   a diagnosis or specialist-selection engine.

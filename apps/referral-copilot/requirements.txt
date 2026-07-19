@@ -2,6 +2,8 @@ streamlit>=1.37,<2
 databricks-sdk>=0.46
 databricks-sql-connector>=3.5
 pandas>=2.2
+elevenlabs>=2,<3
+python-dotenv>=1,<2
 
 # Data Legend required stack — used by src/backend/* once the stubs are wired.
 # Kept here so the Databricks App deploy installs them; all imports in

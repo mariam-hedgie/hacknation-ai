@@ -49,6 +49,10 @@ class IntakeRequest:
     urgency: str = "routine"
     travel_tolerance: str = "medium"
     budget_sensitivity: str = "medium"
+    max_distance_km: int | None = None
+    travel_modes: tuple[str, ...] = ()
+    travel_budget_rupees: int | None = None
+    care_budget_rupees: int | None = None
     facility_preference: str = "either"
     language_preference: str | None = None
     medication_name: str | None = None
@@ -118,6 +122,12 @@ def validate_confirmed_intake(request: IntakeRequest) -> tuple[str, ...]:
         errors.append("Choose a valid budget sensitivity.")
     if not _valid_choice(request.facility_preference, _PREFERENCES):
         errors.append("Choose a valid facility preference.")
+    if request.max_distance_km is not None and request.max_distance_km < 1:
+        errors.append("Maximum travel distance must be at least 1 km.")
+    if request.travel_budget_rupees is not None and request.travel_budget_rupees < 0:
+        errors.append("Travel budget cannot be negative.")
+    if request.care_budget_rupees is not None and request.care_budget_rupees < 0:
+        errors.append("Care budget cannot be negative.")
 
     if request.care_task in {"known_referral", "procedure", "lab", "follow_up"} and not _present(
         request.confirmed_capability
@@ -259,7 +269,16 @@ def build_shortlist(
             validation_errors=errors,
         )
 
-    eligible = [candidate for candidate in candidates if _matches_confirmed_need(request, candidate)]
+    eligible = [
+        candidate
+        for candidate in candidates
+        if _matches_confirmed_need(request, candidate)
+        and not (
+            request.max_distance_km is not None
+            and candidate.distance_km is not None
+            and candidate.distance_km > request.max_distance_km
+        )
+    ]
     if not eligible:
         return ShortlistResult(
             SafetyBranch.PROCEED,

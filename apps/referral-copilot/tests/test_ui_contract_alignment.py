@@ -154,6 +154,10 @@ class SimplifiedExperienceTests(unittest.TestCase):
         self.assertIn("एवेन", app.BRAND_LABELS["hi"])
         self.assertIn("एव्हन", app.BRAND_LABELS["mr"])
 
+    def test_voice_requires_explicit_third_party_consent(self):
+        source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertIn("send this recording to ElevenLabs", source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,10 +18,12 @@ from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
+from dotenv import load_dotenv
 
 APP_DIR = Path(__file__).resolve().parent
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
+load_dotenv(APP_DIR.parents[1] / ".env")
 
 from src import enrichment as enrich
 from src import profiles
@@ -33,19 +35,22 @@ from src.localization import (
     TRUST_LEVEL_KEYS,
     resolve_language,
 )
+from src.preferences import budget_fit, summarize_preferences
 from src.ui_contract import AvenUiBackend
+from src.voice import configured_voice_client, transcribe_for_review, VoiceUnavailableError
+from src.web_evidence import (
+    WebEvidenceConfigurationError,
+    WebEvidenceUnavailableError,
+    search_public_sources,
+)
 from src.styles import (
     CSS,
-    ECG_DIVIDER_SVG,
     FONT_IMPORT,
-    LOGO_PULSE_SVG,
     SCROLL_REVEAL_JS,
     card_classes,
     chips_html,
     claim_html,
     evidence_badge_html,
-    marquee_html,
-    option_icon,
     quality_note_html,
     trust_chip_html,
 )
@@ -53,6 +58,11 @@ from src.styles import (
 # Language names come from src/localization.py — the module that owns approved
 # translations — so the picker can never drift from what is actually translatable.
 LANGUAGES = SUPPORTED_LANGUAGES
+BRAND_LABELS = {
+    "en": "Aven",
+    "hi": "Aven · एवेन",
+    "mr": "Aven · एव्हन",
+}
 
 # Bounded feedback vocabulary. Labels are ours; the values must stay inside the
 # façade's accepted statuses (tests/test_ui_contract_alignment.py enforces this),
@@ -279,30 +289,29 @@ UI_COPY = {
 # Each tile maps to a real care task in the domain adapter (plus one saved-plans
 # shortcut). Clicking a tile presets that task and enters the intake flow.
 FEATURE_TILES = [
-    {"key": "known_referral", "icon": "🩺", "title": "Referral or procedure",
+    {"key": "known_referral", "title": "Referral or procedure",
      "desc": "Plan a route for a specialty visit or procedure your doctor referred.",
      "detail_label": "What did your doctor refer you for?"},
-    {"key": "refill", "icon": "💊", "title": "Medication refill",
+    {"key": "refill", "title": "Medication refill",
      "desc": "Find where to refill a prescription or reach a pharmacy.",
      "detail_label": "What medication do you need refilled?"},
-    {"key": "lab", "icon": "🧪", "title": "Lab or blood test",
+    {"key": "lab", "title": "Lab or blood test",
      "desc": "Locate a facility for a test or blood draw your clinician requested.",
      "detail_label": "What test or blood draw was requested?"},
-    {"key": "vaccination", "icon": "💉", "title": "Vaccination",
+    {"key": "vaccination", "title": "Vaccination",
      "desc": "Find where to get a vaccine or routine immunization.",
      "detail_label": "Which vaccine or immunization are you planning for?"},
-    {"key": "follow_up", "icon": "📅", "title": "Follow-up question",
+    {"key": "follow_up", "title": "Find a doctor or follow up",
      "desc": "Reconnect with a facility or doctor about an appointment.",
      "detail_label": "Which facility or doctor are you trying to reach?"},
-    {"key": "symptom_first", "icon": "🧭", "title": "Not sure what I need",
+    {"key": "symptom_first", "title": "Not sure what I need",
      "desc": "Talk it through and plan a safe next step. This is not a diagnosis.",
      "detail_label": "What is worrying you today?"},
 ]
 
 TASK_META = {tile["key"]: tile for tile in FEATURE_TILES}
 
-# Per-language tile copy, keyed by care task. Icons and keys stay in FEATURE_TILES
-# because they are not language-dependent — only title/desc/detail_label are.
+# Per-language tile copy, keyed by care task.
 TILE_COPY = {
     "hi": {
         "known_referral": ("रेफरल या प्रक्रिया",
@@ -351,8 +360,23 @@ def ui_language() -> str:
     return st.session_state.get("language", "en")
 
 
+def _localize_brand(value):
+    native = {"hi": "एवेन", "mr": "एव्हन"}.get(ui_language())
+    if not native:
+        return value
+    if isinstance(value, str):
+        return value.replace("Aven", native)
+    if isinstance(value, list):
+        return [_localize_brand(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_localize_brand(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _localize_brand(item) for key, item in value.items()}
+    return value
+
+
 def t() -> dict:
-    return STRINGS[ui_language()]
+    return _localize_brand(STRINGS[ui_language()])
 
 
 def tx(key: str) -> object:
@@ -361,7 +385,8 @@ def tx(key: str) -> object:
     For safety, evidence, and trust wording use safety_copy() instead — those
     strings are governed by src/localization.py and must not silently fall back.
     """
-    return UI_COPY.get(ui_language(), {}).get(key, UI_COPY["en"][key])
+    value = UI_COPY.get(ui_language(), {}).get(key, UI_COPY["en"][key])
+    return _localize_brand(value)
 
 
 def safety_copy(key: str) -> str:
@@ -504,7 +529,7 @@ def show_header_bar() -> None:
         idx = 0
 
         with cols[idx]:
-            if st.button("Aven", key="brand_home"):
+            if st.button(BRAND_LABELS[ui_language()], key="brand_home"):
                 _go_home()
         idx += 1
         with cols[idx]:
@@ -515,7 +540,7 @@ def show_header_bar() -> None:
             with st.popover("Forms", use_container_width=True):
                 st.markdown("**Choose a form**")
                 for tile in FEATURE_TILES:
-                    if st.button(f"{tile['icon']}  {tile['title']}", key=f"navform_{tile['key']}", use_container_width=True):
+                    if st.button(tile["title"], key=f"navform_{tile['key']}", use_container_width=True):
                         go_to_intake(tile["key"])
         idx += 1
         if has_saved:
@@ -548,13 +573,17 @@ def show_header_bar() -> None:
     if st.session_state.get("language_notice"):
         st.info(st.session_state.language_notice)
 
+    if st.button("Need urgent emergency help?", key="global_emergency", use_container_width=True):
+        st.session_state.emergency_reported = True
+        st.session_state.stage = "emergency"
+        st.rerun()
+
 
 def show_account_control() -> None:
-    """Login / profile control pinned to the top-right corner. Guests can use
-    Aven fully; logging in just persists history, ratings, and the blocklist."""
+    """Make guest, local-demo profile, and platform identity boundaries clear."""
     if is_logged_in():
         first = (st.session_state.user["name"].split() or ["Member"])[0]
-        with st.popover(f"👤 {first}", use_container_width=True):
+        with st.popover(first, use_container_width=True):
             st.markdown(f"**Signed in** · {st.session_state.user['email']}")
             if st.button("My profile", key="acct_profile", use_container_width=True):
                 st.session_state.stage = "profile"
@@ -562,12 +591,14 @@ def show_account_control() -> None:
             if st.button("Log out", key="acct_logout", use_container_width=True):
                 do_logout()
     else:
-        with st.popover("Log in", use_container_width=True):
-            st.markdown("**Log in to Aven**")
-            st.caption("No account needed — you can submit forms as a guest. Log in to keep your history, hospital ratings, and blocked facilities across visits.")
+        with st.popover("Account", use_container_width=True):
+            st.markdown("**Continue as a guest**")
+            st.caption("No account is required. In the deployed app, sign-in is provided by the Databricks workspace. Google sign-in is not configured yet.")
+            st.markdown("**Local demo profile**")
+            st.caption("This is not a real sign-up and should not be used with sensitive information.")
             name = st.text_input("Name", key="login_name", placeholder="Your name")
             email = st.text_input("Email", key="login_email", placeholder="you@example.com")
-            if st.button("Log in", key="login_submit", type="primary", use_container_width=True):
+            if st.button("Use local demo profile", key="login_submit", type="primary", use_container_width=True):
                 if email.strip():
                     do_login(name, email)
                 else:
@@ -579,53 +610,18 @@ def show_account_control() -> None:
 
 def show_landing() -> None:
     show_header_bar()
-
-    # Full-bleed editorial hero: oversized wordmark + poetic tagline + ECG hairline.
     st.markdown(
         f'<div class="aven-hero-full">'
         f'<div class="aven-hero-inner">'
-        f'<span class="aven-eyebrow">{LOGO_PULSE_SVG}{t()["eyebrow"]}</span>'
-        f'<h1 class="aven-display">Aven</h1>'
-        f'{ECG_DIVIDER_SVG}'
-        f'<p class="aven-hero-tagline">{tx("hero_tagline")}</p>'
+        f'<h1 class="aven-display">{BRAND_LABELS[ui_language()]}</h1>'
         f'<p class="aven-hero-sub">{tx("hero_sub")}</p>'
-        f'<a class="aven-scroll-cue" href="#aven-statement">'
-        f'<span>{tx("scroll_cue")}</span><span class="aven-chevron">⌄</span></a>'
         f"</div></div>",
         unsafe_allow_html=True,
     )
-
-    # Marquee ticker.
-    st.markdown(marquee_html(list(tx("marquee"))), unsafe_allow_html=True)
-
-    # Big statement section.
-    st.markdown(
-        f'<div id="aven-statement" class="aven-statement aven-reveal">'
-        f'<span class="aven-section-title">{tx("statement_kicker")}</span>'
-        f'<p class="aven-statement-text">{tx("statement")}</p>'
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
-    # Numbered principles.
-    points = "".join(
-        f'<div class="aven-about-point aven-reveal stagger-{i}">'
-        f'<div class="aven-about-point-num">/ 0{i + 1}</div>'
-        f"<h4>{title}</h4><p>{body}</p></div>"
-        for i, (title, body) in enumerate(tx("about_points"))
-    )
-    st.markdown(
-        f'<div id="aven-about" class="aven-about">'
-        f'<div class="aven-reveal">'
-        f'<span class="aven-section-title">{tx("about_eyebrow")}</span>'
-        f'<h2 class="aven-about-title">{tx("about_title")}</h2>'
-        f'<p class="aven-about-body">{tx("about_body")}</p></div>'
-        f'<div class="aven-about-points">{points}</div>'
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
     show_tiles()
+    with st.expander("How Aven works"):
+        st.write(t()["promise"])
+        st.caption(t()["boundary"])
 
 
 def show_tiles() -> None:
@@ -645,7 +641,7 @@ def show_tiles() -> None:
         row = [tile_copy(t["key"]) for t in FEATURE_TILES[row_start:row_start + 3]]
         cols = st.columns(3)
         for col, tile in zip(cols, row):
-            label = f"{tile['icon']}\n\n**{tile['title']}**\n\n{tile['desc']}\n\n{tx('nav_cta')} →"
+            label = f"**{tile['title']}**\n\n{tile['desc']}\n\n{tx('nav_cta')}"
             if col.button(label, key=f"tile_{tile['key']}", use_container_width=True):
                 go_to_intake(tile["key"])
 
@@ -660,7 +656,7 @@ def show_flow_header() -> None:
     chips = []
     for index, label in enumerate(labels):
         state = "done" if index < current else ("active" if index == current else "")
-        mark = "✓ " if state == "done" else f"{index + 1}. "
+        mark = "Done: " if state == "done" else f"{index + 1}. "
         chips.append(f'<div class="aven-step {state}">{mark}{label}</div>')
     st.markdown(f'<div class="aven-stepper">{"".join(chips)}</div>', unsafe_allow_html=True)
 
@@ -673,7 +669,7 @@ def show_task_switcher(active: str) -> None:
     for col, tile in zip(cols, (tile_copy(t["key"]) for t in FEATURE_TILES)):
         is_active = tile["key"] == active
         if col.button(
-            f"{tile['icon']} {tile['title']}",
+            tile["title"],
             key=f"taskchip_{tile['key']}",
             use_container_width=True,
             type="primary" if is_active else "secondary",
@@ -696,7 +692,6 @@ def show_intake() -> None:
     # Distinct, branded header so each form clearly stands on its own.
     st.markdown(
         f'<div class="aven-form-head">'
-        f'<div class="aven-form-icon">{meta["icon"]}</div>'
         f'<div><h2 class="aven-form-title">{meta["title"]}</h2>'
         f'<p class="aven-form-blurb">{meta["desc"]}</p></div></div>',
         unsafe_allow_html=True,
@@ -710,9 +705,28 @@ def show_intake() -> None:
             show_emergency_panel()
             return
 
-    # Say plainly whether voice input is available instead of leaving its absence
-    # to be discovered. Typed input is always the supported path.
-    st.caption(f"🎤 {ui_backend().service_status()['voice_message']}")
+    voice_client = configured_voice_client()
+    if voice_client is not None and hasattr(st, "audio_input"):
+        recording = st.audio_input("Speak your request (optional)")
+        voice_consent = st.checkbox(
+            "I agree to send this recording to ElevenLabs for transcription."
+        )
+        if recording is not None and st.button(
+            "Transcribe for review", disabled=not voice_consent
+        ):
+            language_codes = {"en": "eng", "hi": "hin", "mr": "mar"}
+            try:
+                transcript = transcribe_for_review(
+                    recording.getvalue(),
+                    client=voice_client,
+                    language_code=language_codes.get(ui_language()),
+                )
+                st.session_state.voice_draft = transcript.text
+                st.info("Transcript ready. Review and edit it before continuing.")
+            except VoiceUnavailableError as exc:
+                st.warning(str(exc))
+    else:
+        st.caption("Voice is not connected here. Typed input is fully supported.")
 
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
     with st.form("intake_form"):
@@ -740,23 +754,59 @@ def show_intake() -> None:
             # user is never turned away for a fact they cannot confirm.
             has_order = {"yes": True, "no": False, "unsure": None}[order_choice]
 
-        message = st.text_area(tx("extra_label"), placeholder=tx("extra_ph"))
+        message = st.text_area(
+            tx("extra_label"),
+            value=st.session_state.get("voice_draft", ""),
+            placeholder=tx("extra_ph"),
+        )
 
         st.markdown(f'<div class="aven-section-title">{tx("prefs")}</div>', unsafe_allow_html=True)
         st.caption(tx("prefs_why"))
         pref_left, pref_right = st.columns(2)
-        # Option values stay English: they are stored on the request and validated
-        # by the domain. Only their displayed labels are localized, so switching
-        # language mid-form relabels the controls without invalidating the answers.
         label_for = scale_labels()
         with pref_left:
-            urgency = st.select_slider(tx("urgency_label"), options=["Routine", "Soon", "Urgent"],
-                                       value="Soon", format_func=label_for)
-            travel = st.select_slider(tx("travel_label"), options=["Low", "Medium", "High"],
-                                      value="Medium", format_func=label_for)
+            urgency = st.radio(
+                tx("urgency_label"),
+                options=["Routine", "Soon", "Urgent"],
+                horizontal=True,
+                index=1,
+                format_func=label_for,
+            )
+            max_distance_km = int(
+                st.number_input(
+                    "Maximum travel distance (km)",
+                    min_value=1,
+                    max_value=5_000,
+                    value=100,
+                    step=25,
+                )
+            )
+            travel_modes = st.multiselect(
+                "Travel modes you can use",
+                options=["walk", "bus", "train", "car", "taxi"],
+                default=["bus", "train"],
+            )
+            travel_budget_rupees = int(
+                st.number_input(
+                    "Maximum travel budget (₹, optional)",
+                    min_value=0,
+                    max_value=1_000_000,
+                    value=0,
+                    step=500,
+                    help="Your limit, not a fare estimate. Enter 0 to skip.",
+                )
+            )
         with pref_right:
-            budget = st.select_slider(tx("budget_label"), options=["Low", "Medium", "High"],
-                                      value="High", format_func=label_for)
+            care_budget_rupees = int(
+                st.number_input(
+                    "Maximum care budget per visit (₹, optional)",
+                    min_value=0,
+                    max_value=10_000_000,
+                    value=0,
+                    step=500,
+                    help="Aven compares this only with a sourced fee. Enter 0 to skip.",
+                )
+            )
             preference = st.radio(tx("facility_label"), options=["Either", "Public", "Private"],
                                   horizontal=True, format_func=label_for)
         language = st.text_input(tx("language_label"))
@@ -764,14 +814,19 @@ def show_intake() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted:
+        travel_tolerance = "low" if max_distance_km <= 25 else ("medium" if max_distance_km <= 150 else "high")
         st.session_state.request = {
             "message": message,
             "care_task": care_task,
             "capability": detail or message or "the care need you described",
             "location": location or "not provided",
             "urgency": urgency.lower(),
-            "travel_tolerance": travel.lower(),
-            "budget_sensitivity": budget.lower(),
+            "travel_tolerance": travel_tolerance,
+            "budget_sensitivity": "high" if care_budget_rupees else "medium",
+            "max_distance_km": max_distance_km,
+            "travel_modes": travel_modes or ["bus", "train"],
+            "travel_budget_rupees": travel_budget_rupees or None,
+            "care_budget_rupees": care_budget_rupees or None,
             "facility_preference": preference.lower(),
             "language": language or "not specified",
             "medication_name": detail if care_task == "refill" else None,
@@ -798,6 +853,7 @@ def show_emergency_panel() -> None:
         unsafe_allow_html=True,
     )
     if st.button(safety_copy("emergency_restart")):
+        st.session_state.emergency_reported = False
         st.session_state.stage = "intake"
         st.session_state.draft_message = ""
         st.rerun()
@@ -805,12 +861,18 @@ def show_emergency_panel() -> None:
 
 def show_confirmation() -> None:
     request = st.session_state.request
+    preference_summary = summarize_preferences(
+        max_distance_km=request["max_distance_km"],
+        travel_modes=request["travel_modes"],
+        travel_budget_rupees=request.get("travel_budget_rupees"),
+        care_budget_rupees=request.get("care_budget_rupees"),
+    )
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
     st.markdown(f'<div class="aven-section-title">{tx("confirm_title")}</div>', unsafe_allow_html=True)
     st.markdown(
         f"> You are looking for **{request['capability']}** from **{request['location']}**, "
-        f"**{request['urgency']}**. You prefer **{request['travel_tolerance']} travel burden** "
-        f"and **{request['facility_preference']}** facilities."
+        f"**{request['urgency']}**. Your limits are **{preference_summary}**, "
+        f"with **{request['facility_preference']}** facilities preferred."
     )
     with st.expander("See all fields"):
         st.json(request)
@@ -930,10 +992,10 @@ def show_option_card(index: int, option: dict) -> None:
         top = st.columns([3, 2])
         with top[0]:
             st.markdown(
-                f'<div class="aven-option-label">{option_icon(option["label"])} {option["label"]}</div>',
+                f'<div class="aven-option-label">{option["label"]}</div>',
                 unsafe_allow_html=True,
             )
-            name_extra = f' <span class="aven-rating-badge">★ {rating}/5</span>' if rating else ""
+            name_extra = f' <span class="aven-rating-badge">Rated {rating}/5</span>' if rating else ""
             st.markdown(f'<p class="aven-facility-name">{facility}{name_extra}</p>', unsafe_allow_html=True)
         with top[1]:
             st.markdown(
@@ -949,6 +1011,15 @@ def show_option_card(index: int, option: dict) -> None:
         st.markdown(f'<p class="aven-fact">{option["summary"]}</p>', unsafe_allow_html=True)
         st.markdown(f'<p class="aven-fact"><strong>{option["travel"]}</strong></p>', unsafe_allow_html=True)
         st.markdown(f'<p class="aven-fact"><strong>{option["cost"]}</strong></p>', unsafe_allow_html=True)
+        fit = budget_fit(
+            travel_budget_rupees=st.session_state.request.get("travel_budget_rupees"),
+            care_budget_rupees=st.session_state.request.get("care_budget_rupees"),
+            estimated_travel_cost_rupees=option.get("estimated_travel_cost_rupees"),
+            documented_care_cost_rupees=option.get("documented_care_cost_rupees"),
+        )
+        st.caption(f"Budget check — {fit.summary}")
+        modes = ", ".join(st.session_state.request.get("travel_modes") or [])
+        st.caption(f"Travel modes you selected: {modes or 'none'}")
         st.markdown(f'<p class="aven-fact"><strong>What to do next:</strong> {option["next_step"]}</p>', unsafe_allow_html=True)
 
         show_enrichment(option)
@@ -961,10 +1032,8 @@ def show_option_card(index: int, option: dict) -> None:
                 profiles.add_saved(profile, option, st.session_state.request.get("care_task", ""))
                 persist_profile()
                 st.success("Saved — reopen it from My plans.")
-                if not already_saved:
-                    st.balloons()
         with button_cols[1]:
-            if st.button("🚫 Never refer me here", key=f"block_{index}", use_container_width=True):
+            if st.button("Do not recommend again", key=f"block_{index}", use_container_width=True):
                 profiles.block_facility(profile, facility)
                 persist_profile()
                 st.rerun()
@@ -976,6 +1045,26 @@ def show_option_card(index: int, option: dict) -> None:
                 st.caption(option["ranking"])
                 st.markdown("**Evidence**")
                 st.write(option["evidence"])
+
+        with st.expander("Doctors, fees, contact and official web sources"):
+            st.caption(
+                "This optional check sends only the facility name and confirmed service to Tavily. "
+                "Results are source candidates and do not change the ranking until verified."
+            )
+            source_key = f"web_sources_{index}"
+            if st.button("Find public sources", key=f"web_search_{index}"):
+                try:
+                    st.session_state[source_key] = search_public_sources(
+                        facility,
+                        st.session_state.request["capability"],
+                    )
+                except (WebEvidenceConfigurationError, WebEvidenceUnavailableError) as exc:
+                    st.info(str(exc))
+            for source in st.session_state.get(source_key, ()):
+                st.link_button(source.title, source.url)
+                st.caption(f"External source candidate · retrieved {source.retrieved_at}")
+                if source.snippet:
+                    st.write(source.snippet)
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1025,7 +1114,7 @@ def show_results() -> None:
 
     if backend.backend_mode() == "demo":
         st.markdown(
-            '<div class="aven-datasource-note">⚙️ Seeded demo data — the Databricks evidence pipeline '
+            '<div class="aven-datasource-note">Seeded demo data — the Databricks evidence pipeline '
             '(Vector Search · Agent Bricks · Lakebase) is not connected in this environment. '
             'Every option is labelled as a demo.</div>',
             unsafe_allow_html=True,
@@ -1048,7 +1137,7 @@ def show_results() -> None:
     hidden = len(options) - len(visible)
     if hidden:
         st.markdown(
-            f'<div class="aven-blocked-note">🚫 {hidden} option(s) hidden because you asked not to be referred there. '
+            f'<div class="aven-blocked-note">{hidden} option(s) hidden because you asked not to be referred there. '
             f'Manage this in your profile.</div>',
             unsafe_allow_html=True,
         )
@@ -1073,7 +1162,7 @@ def show_results() -> None:
     if st.session_state.saved_plans:
         st.markdown('<div class="aven-section-title">My plans</div>', unsafe_allow_html=True)
         for plan in st.session_state.saved_plans:
-            st.markdown(f"- {option_icon(plan['label'])} **{plan['facility']}** — {plan['label']}")
+            st.markdown(f"- **{plan['facility']}** — {plan['label']}")
 
     if st.button("Start a new request"):
         st.session_state.stage = "intake"
@@ -1102,7 +1191,7 @@ def show_profile() -> None:
     stat_cols[1].metric("Saved referrals", len(profile["saved"]))
     stat_cols[2].metric("Blocked facilities", len(profile["blocklist"]))
 
-    if st.button("＋ Start a new request", type="primary"):
+    if st.button("Start a new request", type="primary"):
         go_to_intake(None)
 
     # --- Blocklist ---
@@ -1111,7 +1200,7 @@ def show_profile() -> None:
         st.caption("Aven will never include these in your routes. Remove one to allow it again.")
         for i, facility in enumerate(list(profile["blocklist"])):
             row = st.columns([4, 1], vertical_alignment="center")
-            row[0].markdown(f"🚫 **{facility}**")
+            row[0].markdown(f"**{facility}**")
             if row[1].button("Unblock", key=f"unblock_{i}", use_container_width=True):
                 profiles.unblock_facility(profile, facility)
                 persist_profile()
@@ -1149,7 +1238,7 @@ def show_profile() -> None:
                             persist_profile()
                             st.rerun()
                     else:
-                        if st.button("🚫 Never again", key=f"psaved_block_{i}", use_container_width=True):
+                        if st.button("Do not recommend again", key=f"psaved_block_{i}", use_container_width=True):
                             profiles.block_facility(profile, facility)
                             persist_profile()
                             st.rerun()
@@ -1174,7 +1263,7 @@ def show_profile() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Aven", page_icon="🩺", layout="centered")
+    st.set_page_config(page_title="Aven", page_icon="A", layout="centered")
     st.markdown(FONT_IMPORT, unsafe_allow_html=True)
     st.markdown(CSS, unsafe_allow_html=True)
     initialize_state()
@@ -1186,7 +1275,10 @@ def main() -> None:
     if stage == "results" and "options" not in st.session_state:
         stage = st.session_state.stage = "intake"
 
-    if stage == "landing":
+    if stage == "emergency":
+        show_header_bar()
+        show_emergency_panel()
+    elif stage == "landing":
         show_landing()
     elif stage == "profile":
         show_header_bar()
@@ -1202,7 +1294,9 @@ def main() -> None:
 
     st.markdown(
         f'<div class="aven-footer">'
-        f'<p class="aven-footer-boundary">🛡️ {t()["boundary"]}</p>'
+        f'<p class="aven-footer-boundary">{t()["boundary"]}</p>'
+        f'<p><strong>Contact us</strong> · '
+        f'<a href="https://github.com/mariam-hedgie/hacknation-ai/issues">Send feedback or report a problem</a></p>'
         f"</div>",
         unsafe_allow_html=True,
     )

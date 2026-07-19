@@ -527,28 +527,13 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
 </style>
 """
 
-# Icon only — the wording is governed copy and arrives already translated from
-# src/localization.py. Never put user-facing evidence text in this module.
-EVIDENCE_BADGE_ICONS: dict[str, str] = {
-    "documented": "check",
-    "conflicting": "alert",
-    "not_documented": "question",
-    "external_corroborated": "link",
-    "user_context": "note",
-}
-
-_ICONS = {"check": "✅", "alert": "⚠️", "question": "❔", "link": "🔗", "note": "🗒️"}
-
-
 _LIVE_STATUSES = {"documented", "external_corroborated"}
 
 
 def evidence_badge_html(status: str, label: str) -> str:
     """Render an evidence badge. `label` must be approved, translated copy."""
-    icon_key = EVIDENCE_BADGE_ICONS.get(status, EVIDENCE_BADGE_ICONS["not_documented"])
-    icon = _ICONS[icon_key]
     dot = '<span class="aven-pulse-dot"></span>' if status in _LIVE_STATUSES else ""
-    return f'<span class="aven-badge {status}">{dot}{icon} {escape(label)}</span>'
+    return f'<span class="aven-badge {status}">{dot}{escape(label)}</span>'
 
 
 def trust_chip_html(label: str, explanation: str) -> str:
@@ -584,17 +569,6 @@ def claim_html(text: str, evidence: list[str], verified: bool) -> str:
 
 def quality_note_html(line: str, *, sparse: bool = False) -> str:
     return f'<div class="aven-quality-note{" sparse" if sparse else ""}">{escape(line)}</div>'
-
-
-OPTION_ICONS: dict[str, str] = {
-    "Best documented fit": "🥇",
-    "Lower-burden route": "🧭",
-    "Alternative to verify": "🔍",
-}
-
-
-def option_icon(label: str) -> str:
-    return OPTION_ICONS.get(label, "📍")
 
 
 def card_classes(index: int) -> str:

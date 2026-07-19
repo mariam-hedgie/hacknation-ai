@@ -64,6 +64,19 @@ class WebEvidenceTests(unittest.TestCase):
 
         self.assertEqual(rows, ())
 
+    def test_urls_with_whitespace_or_credentials_are_discarded(self) -> None:
+        rows = normalize_search_results(
+            {
+                "results": [
+                    {"title": "Bad", "url": "https://good.example/a bad", "content": "x"},
+                    {"title": "Bad", "url": "https://user:pass@good.example/x", "content": "x"},
+                ]
+            },
+            retrieved_at="2026-07-19T10:00:00Z",
+        )
+
+        self.assertEqual(rows, ())
+
 
 if __name__ == "__main__":
     unittest.main()
