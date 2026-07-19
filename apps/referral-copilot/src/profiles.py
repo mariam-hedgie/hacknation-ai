@@ -93,6 +93,14 @@ def add_saved(profile: dict[str, Any], option: dict[str, Any], care_task: str) -
         "facility": facility,
         "label": option.get("label", ""),
         "care_task": care_task,
+        # Facility-plan fields only. Never retain the user's narrative, location,
+        # medication, transcript, or other intake in this lightweight profile.
+        "travel": option.get("travel", ""),
+        "cost": option.get("cost", ""),
+        "unknowns": option.get("unknowns", ""),
+        "next_step": option.get("next_step", ""),
+        "evidence_status": option.get("evidence_status", "not_documented"),
+        "saved_at": time.time(),
     })
 
 

@@ -15,19 +15,25 @@ from dataclasses import dataclass
 
 SUPPORTED_TRAVEL_MODES = (
     "walk",
-    "cycle",
+    "bicycle",
     "motorbike",
     "car",
-    "taxi",
     "bus",
     "train",
+    "taxi",
     "plane",
 )
 
-_GOOGLE_ROUTE_MODES = frozenset(
-    {"walk", "cycle", "motorbike", "car", "bus", "train"}
-)
-_ORS_ROUTE_MODES = frozenset({"walk", "cycle", "car"})
+_GOOGLE_ROUTE_MODES = {
+    "walk": "WALK",
+    "bicycle": "BICYCLE",
+    "motorbike": "TWO_WHEELER",
+    "car": "DRIVE",
+    "bus": "TRANSIT",
+    "train": "TRANSIT",
+}
+_ORS_ROUTE_MODES = {"walk": "foot-walking", "bicycle": "cycling-regular", "car": "driving-car"}
+_GOOGLE_BETA_MODES = frozenset({"walk", "bicycle", "motorbike"})
 
 
 @dataclass(frozen=True)
@@ -44,6 +50,7 @@ class TravelModeCapability:
     """Honest, user-visible capability labels for one provider and mode."""
 
     mode: str
+    provider_mode: str | None
     route_supported: bool
     comparison_only: bool
     live_price_supported: bool
@@ -97,7 +104,7 @@ def validate_travel_mode(mode: str) -> str:
     normalized = mode.strip().casefold()
     if normalized not in SUPPORTED_TRAVEL_MODES:
         raise ValueError(
-            "Unsupported travel mode. Choose walk, cycle, motorbike, car, taxi, bus, train, or plane."
+            "Unsupported travel mode. Choose walk, bicycle, motorbike, car, bus, train, taxi, or plane."
         )
     return normalized
 
@@ -135,12 +142,15 @@ def mode_capability(provider: MapProvider, mode: str) -> TravelModeCapability:
 
     normalized_mode = validate_travel_mode(mode)
     if provider.name == "google":
-        route_supported = normalized_mode in _GOOGLE_ROUTE_MODES
+        provider_mode = _GOOGLE_ROUTE_MODES.get(normalized_mode)
+        route_supported = provider_mode is not None
         provider_label = "Google"
     elif provider.name == "openrouteservice":
-        route_supported = normalized_mode in _ORS_ROUTE_MODES
+        provider_mode = _ORS_ROUTE_MODES.get(normalized_mode)
+        route_supported = provider_mode is not None
         provider_label = "openrouteservice"
     else:
+        provider_mode = None
         route_supported = False
         provider_label = "Demo"
 
@@ -149,6 +159,8 @@ def mode_capability(provider: MapProvider, mode: str) -> TravelModeCapability:
             f"{provider_label} route supported for {normalized_mode}; "
             "live price is not provided and live transit status is not confirmed."
         )
+        if provider.name == "google" and normalized_mode in _GOOGLE_BETA_MODES:
+            user_label += " Google labels this route mode beta; paths may be incomplete."
     else:
         user_label = (
             f"{provider_label} comparison only for {normalized_mode}; "
@@ -157,6 +169,7 @@ def mode_capability(provider: MapProvider, mode: str) -> TravelModeCapability:
 
     return TravelModeCapability(
         mode=normalized_mode,
+        provider_mode=provider_mode,
         route_supported=route_supported,
         comparison_only=not route_supported,
         live_price_supported=False,

@@ -14,6 +14,9 @@ class VoiceUnavailableError(RuntimeError):
     pass
 
 
+MAX_AUDIO_BYTES = 10 * 1024 * 1024
+
+
 class SpeechClient(Protocol):
     def transcribe(self, audio: bytes, *, language_code: str | None) -> str: ...
 
@@ -67,6 +70,8 @@ def transcribe_for_review(
 ) -> ReviewableTranscript:
     if not audio:
         raise VoiceUnavailableError("Record audio before requesting transcription.")
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise VoiceUnavailableError("Keep the voice recording under 10 MB.")
     if client is None:
         raise VoiceUnavailableError("Voice transcription is not configured.")
     try:

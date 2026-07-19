@@ -51,6 +51,28 @@ class WebEvidenceTests(unittest.TestCase):
         self.assertEqual(rows[0].retrieved_at, "2026-07-19T10:00:00Z")
         self.assertTrue(rows[0].url.startswith("https://"))
 
+    def test_contact_numbers_are_extracted_as_source_candidates(self) -> None:
+        rows = normalize_search_results(
+            {
+                "results": [
+                    {
+                        "title": "Hospital contact page",
+                        "url": "https://hospital.example/contact",
+                        "content": (
+                            "Appointments: +91 612 234 5678. "
+                            "Alternate desk: 0612-2345678."
+                        ),
+                    }
+                ]
+            },
+            retrieved_at="2026-07-19T10:00:00Z",
+        )
+
+        self.assertEqual(
+            rows[0].phone_numbers,
+            ("+91 612 234 5678", "0612-2345678"),
+        )
+
     def test_non_http_results_and_script_urls_are_discarded(self) -> None:
         rows = normalize_search_results(
             {

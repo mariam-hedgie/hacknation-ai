@@ -41,9 +41,14 @@ or cross-session persistence.
 | GitHub Dependabot alerts | NOT AVAILABLE | Disabled for the private repository |
 | GitHub secret scanning | NOT AVAILABLE | Disabled for the private repository/current token cannot audit it |
 | GitHub code scanning | NOT AVAILABLE | No code-scanning setup |
-| GitHub Actions | NOT AVAILABLE at audit start | No workflow runs existed |
+| GitHub Actions | PASS | PR #8 run `29676044630`: hosted Ubuntu verification passed in 43 seconds |
 
 Vulnerability results are time-bound snapshots, not guarantees.
+
+The first hosted run passed but warned that the v4/v5 setup actions used the
+deprecated Node 20 action runtime. The workflow was updated to the current
+Node-24-based `checkout`, `setup-python`, and `setup-node` v6 releases; the
+second hosted run passed without that annotation.
 
 ## TDD deployment fix
 
@@ -127,4 +132,3 @@ Do not label the full system PASS until all of these are captured:
 - no raw identity, health narrative, credentials, or audio in logs/storage;
 - final Hindi and Marathi keyboard/mobile smoke tests; and
 - final responsive map/text-fallback accessibility test.
-

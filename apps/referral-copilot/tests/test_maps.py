@@ -56,7 +56,7 @@ class ValidationTests(unittest.TestCase):
     def test_all_and_only_product_modes_are_whitelisted(self) -> None:
         self.assertEqual(
             SUPPORTED_TRAVEL_MODES,
-            ("walk", "cycle", "motorbike", "car", "taxi", "bus", "train", "plane"),
+            ("walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane"),
         )
 
     def test_travel_mode_is_normalized_and_invalid_modes_are_rejected(self) -> None:
@@ -89,12 +89,21 @@ class CapabilityTruthLabelTests(unittest.TestCase):
     def test_google_supports_routes_but_never_claims_live_prices(self) -> None:
         google = select_map_provider({"GOOGLE_MAPS_API_KEY": "configured"})
 
-        for mode in ("walk", "cycle", "motorbike", "car", "bus", "train"):
+        expected_provider_modes = {
+            "walk": "WALK",
+            "bicycle": "BICYCLE",
+            "motorbike": "TWO_WHEELER",
+            "car": "DRIVE",
+            "bus": "TRANSIT",
+            "train": "TRANSIT",
+        }
+        for mode, provider_mode in expected_provider_modes.items():
             with self.subTest(mode=mode):
                 capability = mode_capability(google, mode)
                 self.assertTrue(capability.route_supported)
                 self.assertFalse(capability.comparison_only)
                 self.assertFalse(capability.live_price_supported)
+                self.assertEqual(capability.provider_mode, provider_mode)
 
         for mode in ("taxi", "plane"):
             with self.subTest(mode=mode):
@@ -102,6 +111,14 @@ class CapabilityTruthLabelTests(unittest.TestCase):
                 self.assertFalse(capability.route_supported)
                 self.assertTrue(capability.comparison_only)
                 self.assertFalse(capability.live_price_supported)
+                self.assertIsNone(capability.provider_mode)
+
+    def test_google_beta_modes_show_the_required_path_quality_warning(self) -> None:
+        google = select_map_provider({"GOOGLE_MAPS_API_KEY": "configured"})
+
+        for mode in ("walk", "bicycle", "motorbike"):
+            with self.subTest(mode=mode):
+                self.assertIn("beta", mode_capability(google, mode).user_label.casefold())
 
     def test_transit_is_never_labelled_live_by_capability_alone(self) -> None:
         google = select_map_provider({"GOOGLE_MAPS_API_KEY": "configured"})
@@ -113,7 +130,7 @@ class CapabilityTruthLabelTests(unittest.TestCase):
     def test_ors_supports_only_its_explicit_route_profiles(self) -> None:
         ors = select_map_provider({"OPENROUTESERVICE_API_KEY": "configured"})
 
-        for mode in ("walk", "cycle", "car"):
+        for mode in ("walk", "bicycle", "car"):
             with self.subTest(mode=mode):
                 self.assertTrue(mode_capability(ors, mode).route_supported)
 
