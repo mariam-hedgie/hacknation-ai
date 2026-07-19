@@ -22,8 +22,25 @@ import os
 from pathlib import Path
 from typing import Any
 
-# apps/referral-copilot/src/backend/local_search.py -> repo root is 4 parents up.
-_DEFAULT_DATA_PATH = Path(__file__).resolve().parents[4] / "data" / "facilities_searchable.json"
+def _default_data_path() -> Path:
+    """Locate the optional local facility extract.
+
+    Searches upward for `data/facilities_searchable.json` instead of indexing a
+    fixed ancestor: a deployed copy of src/ need not sit at the repository's
+    directory depth (a container image roots it at /app). Falls back to the
+    repository-relative location, which simply will not exist when absent —
+    this retriever is optional and reports itself unavailable.
+    """
+
+    here = Path(__file__).resolve()
+    for candidate in here.parents:
+        extract = candidate / "data" / "facilities_searchable.json"
+        if extract.is_file():
+            return extract
+    return here.parents[min(4, len(here.parents) - 1)] / "data" / "facilities_searchable.json"
+
+
+_DEFAULT_DATA_PATH = _default_data_path()
 
 _MATCH_GROUPS = ("capabilities", "procedures", "equipment")
 
