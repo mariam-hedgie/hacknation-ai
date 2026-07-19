@@ -1,16 +1,26 @@
 # One-click Render blueprint for the public demo.
 # Render reads this automatically when you create a Blueprint from the repo.
-# Any other container host (Fly.io, Railway, Hugging Face Spaces) can build the
-# same Dockerfile instead — see docs/self-hosting.md.
+#
+# This uses Render's native Python runtime — no Docker involved. It works
+# because the built React bundle is committed at
+# apps/referral-copilot/frontend/dist, so the host needs Python only.
+#
+# The repo also ships a Dockerfile for hosts where you prefer a container
+# (Fly.io, Hugging Face Spaces). Both serve the identical app.
+# See docs/self-hosting.md.
 
 services:
   - type: web
     name: aven-demo
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: python
     plan: free
+    rootDir: apps/referral-copilot
+    buildCommand: pip install -r requirements-demo.txt
+    startCommand: uvicorn src.backend.api:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     healthCheckPath: /api/service-status
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.9"
       # Anonymous per-session demo identity. Do not set AVEN_AUTH_MODE to
       # databricks here: off-platform there is no Databricks proxy, so the
       # X-Forwarded-User header would be attacker-supplied.
