@@ -100,6 +100,16 @@ _COPY = {
         "hi": "हमें बताएं कि आपको कौन सी विशेषज्ञता या सेवा चाहिए, फिर दोबारा पुष्टि करें। Aven देखभाल तक पहुंच की योजना बनाता है, निदान नहीं करता।",
         "mr": "तुम्हाला कोणती तज्ज्ञता किंवा सेवा हवी आहे ते सांगा, नंतर पुन्हा पुष्टी करा. Aven काळजी मिळवण्याचे नियोजन करते, निदान करत नाही.",
     },
+    "emergency_intake_warning": {
+        "en": "If you think this may be an emergency, seek urgent local help now. Aven cannot assess or diagnose symptoms.",
+        "hi": "यदि आपको लगता है कि यह आपातकाल हो सकता है, तो अभी स्थानीय तत्काल सहायता लें। Aven लक्षणों का आकलन या निदान नहीं कर सकता।",
+        "mr": "जर तुम्हाला वाटत असेल की ही आपत्कालीन परिस्थिती असू शकते, तर आत्ताच स्थानिक तातडीची मदत घ्या. Aven लक्षणांचे मूल्यांकन किंवा निदान करू शकत नाही.",
+    },
+    "emergency_intake_checkbox": {
+        "en": "I have a possible emergency warning sign or need immediate help",
+        "hi": "मुझमें आपातकालीन चेतावनी का संभावित संकेत है या मुझे तुरंत मदद चाहिए",
+        "mr": "माझ्यात आपत्कालीन इशाऱ्याचे संभाव्य चिन्ह आहे किंवा मला तातडीने मदत हवी आहे",
+    },
     # --- Evidence status labels. docs/ui-handoff.md requires these exact words
     # everywhere, so they are governed rather than free UI copy.
     "evidence_documented": {
@@ -160,6 +170,8 @@ SAFETY_CRITICAL = frozenset(
         "emergency_body",
         "emergency_restart",
         "confirm_care_setting_help",
+        "emergency_intake_warning",
+        "emergency_intake_checkbox",
         "evidence_documented",
         "evidence_conflicting",
         "evidence_external",

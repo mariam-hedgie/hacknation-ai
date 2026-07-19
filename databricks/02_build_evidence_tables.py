@@ -1,5 +1,10 @@
 # Databricks notebook source
-"""Build normalized facility, literal evidence, and source-chunk tables.
+"""SUPERSEDED (see TODO.md "Decision — Model B adopted"): builds Model A
+tables that were never populated. The real table is
+workspace.default.facilities_searchable (../extract_data.py + ../flatten_data.py).
+Kept for reference only.
+
+Build normalized facility, literal evidence, and source-chunk tables.
 
 Set the widgets to the live table and its real columns after running phase 1.
 No model-generated text is accepted as evidence: every stored cited span is

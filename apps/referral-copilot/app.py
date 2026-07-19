@@ -16,6 +16,7 @@ import time
 from html import escape
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -69,27 +70,18 @@ FEEDBACK_OPTIONS = {
 
 STRINGS = {
     "en": {
-        "tagline": "The right care route, with proof.",
         "boundary": "Aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
-        "promise": "Tell us what you need. We will help you plan the next step with evidence from facility records.",
         "steps": ["Tell us", "Confirm", "Your plan"],
-        "vitals": "Connected across facility networks",
         "eyebrow": "Care Navigation · Evidence-Backed",
     },
     "hi": {
-        "tagline": "सही देखभाल मार्ग, प्रमाण के साथ।",
         "boundary": "Aven देखभाल तक पहुंच की योजना बनाने में मदद करता है — यह निदान नहीं करता, दवा नहीं लिखता, कीमतों का वादा नहीं करता, लाइव उपलब्धता नहीं दिखाता, और न ही आपातकालीन देखभाल की जगह लेता है।",
-        "promise": "हमें बताएं आपको क्या चाहिए। हम सुविधा रिकॉर्ड के प्रमाण के साथ अगला कदम बनाने में मदद करेंगे।",
         "steps": ["बताएं", "पुष्टि करें", "आपकी योजना"],
-        "vitals": "सुविधा नेटवर्क में सक्रिय रूप से जुड़ा हुआ",
         "eyebrow": "देखभाल मार्गदर्शन · प्रमाण-आधारित",
     },
     "mr": {
-        "tagline": "योग्य काळजी मार्ग, पुराव्यासह.",
         "boundary": "Aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते — हे निदान करत नाही, औषध लिहून देत नाही, किमतींचे आश्वासन देत नाही, थेट उपलब्धता दाखवत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
-        "promise": "तुम्हाला काय हवे आहे ते सांगा. आम्ही सुविधा नोंदींच्या पुराव्यासह पुढील पाऊल ठरवण्यास मदत करू.",
         "steps": ["सांगा", "पुष्टी करा", "तुमची योजना"],
-        "vitals": "सुविधा नेटवर्कमध्ये सक्रियपणे जोडलेले",
         "eyebrow": "काळजी मार्गदर्शन · पुरावा-आधारित",
     },
 }
@@ -151,6 +143,9 @@ UI_COPY = {
         "confirm_title": "योजना बनाने से पहले पुष्टि करें",
         "confirm_edit": "अनुरोध संपादित करें",
         "confirm_go": "पुष्टि करें और मार्ग खोजें",
+        "confirm_summary": "> आप खोज रहे हैं **{capability}**, **{location}** से, **{urgency}**। आप **{travel_tolerance} यात्रा भार** और **{facility_preference}** सुविधाएं पसंद करते हैं।",
+        "confirm_see_fields": "सभी फ़ील्ड देखें",
+        "confirm_caption": "हम आपके पुष्टि किए गए अनुरोध का उपयोग प्रलेखित सुविधा विकल्पों की तुलना करने के लिए करते हैं। हम कीमत, उपलब्धता या पात्रता का अनुमान नहीं लगाते।",
         "results_title": "सर्वोत्तम अगला कदम",
         "scale": {
             "Routine": "सामान्य", "Soon": "जल्द", "Urgent": "तत्काल",
@@ -210,6 +205,9 @@ UI_COPY = {
         "confirm_title": "नियोजनापूर्वी पुष्टी करा",
         "confirm_edit": "विनंती संपादित करा",
         "confirm_go": "पुष्टी करा आणि मार्ग शोधा",
+        "confirm_summary": "> तुम्ही शोधत आहात **{capability}**, **{location}** येथून, **{urgency}**. तुम्हाला **{travel_tolerance} प्रवास भार** आणि **{facility_preference}** सुविधा हव्या आहेत.",
+        "confirm_see_fields": "सर्व फील्ड पहा",
+        "confirm_caption": "आम्ही तुमच्या पुष्टी केलेल्या विनंतीचा वापर नोंदणीकृत सुविधा पर्यायांची तुलना करण्यासाठी करतो. आम्ही किंमत, उपलब्धता किंवा पात्रतेचा अंदाज लावत नाही.",
         "results_title": "सर्वोत्तम पुढील पाऊल",
         "scale": {
             "Routine": "नियमित", "Soon": "लवकर", "Urgent": "तातडीचे",
@@ -269,6 +267,9 @@ UI_COPY = {
         "confirm_title": "Please confirm before we plan",
         "confirm_edit": "Edit request",
         "confirm_go": "Confirm and find routes",
+        "confirm_summary": "> You are looking for **{capability}** from **{location}**, **{urgency}**. You prefer **{travel_tolerance} travel burden** and **{facility_preference}** facilities.",
+        "confirm_see_fields": "See all fields",
+        "confirm_caption": "We use your confirmed request to compare documented facility options. We do not infer price, availability, or eligibility.",
         "results_title": "Best next step",
         # Identity map: scale() falls back to the English value, which is also the
         # canonical value stored on the request.
@@ -410,6 +411,8 @@ def initialize_state() -> None:
         "language_notice": None,
         "plan_response": None,  # last confirm_and_plan outcome, incl. safety branch
         "emergency_reported": False,
+        "ask_conversation_id": None,
+        "ask_history": [],
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -495,11 +498,11 @@ def show_header_bar() -> None:
     CSS makes sticky and full-bleed."""
     with st.container(key="aven_header"):
         has_saved = bool(st.session_state.saved_plans)
-        # brand | home | forms | [saved] | spacer | language | account
+        # brand | home | forms | ask | [saved] | spacer | language | account
         if has_saved:
-            widths = [1.5, 0.7, 0.9, 0.9, 0.5, 1.0, 1.0]
+            widths = [1.4, 0.7, 0.9, 0.7, 0.8, 0.4, 1.0, 1.0]
         else:
-            widths = [1.7, 0.8, 1.0, 0.6, 1.1, 1.1]
+            widths = [1.5, 0.7, 1.0, 0.8, 0.5, 1.1, 1.1]
         cols = st.columns(widths, vertical_alignment="center")
         idx = 0
 
@@ -517,6 +520,11 @@ def show_header_bar() -> None:
                 for tile in FEATURE_TILES:
                     if st.button(f"{tile['icon']}  {tile['title']}", key=f"navform_{tile['key']}", use_container_width=True):
                         go_to_intake(tile["key"])
+        idx += 1
+        with cols[idx]:
+            if st.button("Ask", key="page_ask"):
+                st.session_state.stage = "ask"
+                st.rerun()
         idx += 1
         if has_saved:
             with cols[idx]:
@@ -703,8 +711,8 @@ def show_intake() -> None:
     )
 
     if care_task == "symptom_first":
-        st.warning("If you think this may be an emergency, seek urgent local help now. Aven cannot assess or diagnose symptoms.")
-        emergency = st.checkbox("I have a possible emergency warning sign or need immediate help")
+        st.warning(safety_copy("emergency_intake_warning"))
+        emergency = st.checkbox(safety_copy("emergency_intake_checkbox"))
         st.session_state.emergency_reported = emergency
         if emergency:
             show_emergency_panel()
@@ -808,13 +816,17 @@ def show_confirmation() -> None:
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
     st.markdown(f'<div class="aven-section-title">{tx("confirm_title")}</div>', unsafe_allow_html=True)
     st.markdown(
-        f"> You are looking for **{request['capability']}** from **{request['location']}**, "
-        f"**{request['urgency']}**. You prefer **{request['travel_tolerance']} travel burden** "
-        f"and **{request['facility_preference']}** facilities."
+        str(tx("confirm_summary")).format(
+            capability=request["capability"],
+            location=request["location"],
+            urgency=request["urgency"],
+            travel_tolerance=request["travel_tolerance"],
+            facility_preference=request["facility_preference"],
+        )
     )
-    with st.expander("See all fields"):
+    with st.expander(tx("confirm_see_fields")):
         st.json(request)
-    st.caption("We use your confirmed request to compare documented facility options. We do not infer price, availability, or eligibility.")
+    st.caption(tx("confirm_caption"))
     left, right = st.columns(2)
     with left:
         if st.button(tx("confirm_edit"), use_container_width=True):
@@ -1082,6 +1094,64 @@ def show_results() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def show_ask_data() -> None:
+    """Planner data questions via the Genie seam (src/backend/genie.py):
+    a free-text question goes to a Databricks Genie Space, which generates
+    governed SQL against the facility tables and returns rows. Separate from
+    the referral flow — this is for coverage/aggregate questions like "how
+    many facilities near Patna document dialysis?", not a single user's plan.
+    Always shows the generated SQL alongside the answer as its evidence."""
+    st.markdown('<div class="aven-section-title">Planner data questions</div>', unsafe_allow_html=True)
+    st.markdown("## Ask Aven about the data")
+    st.caption(
+        "Aven turns this into governed SQL over the facility tables via Databricks Genie and shows "
+        "the query it ran — this is aggregate/coverage data, not a personal care plan."
+    )
+
+    genie_available = backend.status().get("genie", False)
+    if not genie_available:
+        st.markdown(
+            '<div class="aven-datasource-note">Genie is not connected in this environment '
+            "(no AVEN_GENIE_SPACE_ID / Databricks SQL warehouse configured), so this page can't "
+            "answer yet. Once wired, questions here get translated to SQL against the real facility "
+            "tables.</div>",
+            unsafe_allow_html=True,
+        )
+
+    with st.form("ask_data_form"):
+        question = st.text_input(
+            "Your question",
+            placeholder="e.g. How many facilities near Patna document dialysis?",
+        )
+        submitted = st.form_submit_button("Ask", type="primary", disabled=not genie_available)
+
+    if submitted and question.strip():
+        with st.spinner("Asking Genie…"):
+            result = backend.ask_data_question(question, conversation_id=st.session_state.ask_conversation_id)
+        if result is None:
+            st.warning("Aven could not answer that — Genie may be unavailable or found nothing to say. Try rephrasing.")
+        else:
+            st.session_state.ask_conversation_id = result.get("conversation_id")
+            st.session_state.ask_history.append({"question": question, "result": result})
+
+    for turn in reversed(st.session_state.ask_history):
+        result = turn["result"]
+        st.markdown(f'<p class="aven-fact"><strong>You asked:</strong> {turn["question"]}</p>', unsafe_allow_html=True)
+        if result.get("answer"):
+            st.markdown(result["answer"])
+        if result.get("sql"):
+            with st.expander("Generated SQL (the evidence for this answer)"):
+                st.code(result["sql"], language="sql")
+        if result.get("rows"):
+            st.dataframe(pd.DataFrame(result["rows"]), use_container_width=True)
+        st.divider()
+
+    if st.session_state.ask_history and st.button("Clear conversation"):
+        st.session_state.ask_conversation_id = None
+        st.session_state.ask_history = []
+        st.rerun()
+
+
 def show_profile() -> None:
     profile = current_profile()
     logged_in = is_logged_in()
@@ -1191,6 +1261,9 @@ def main() -> None:
     elif stage == "profile":
         show_header_bar()
         show_profile()
+    elif stage == "ask":
+        show_header_bar()
+        show_ask_data()
     else:
         show_flow_header()
         if stage == "intake":

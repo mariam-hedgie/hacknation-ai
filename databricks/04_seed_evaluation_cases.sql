@@ -1,3 +1,6 @@
+-- SUPERSEDED (see TODO.md "Decision — Model B adopted"): Model A, never built.
+-- Real table is workspace.default.facilities_searchable. Reference only.
+--
 -- Synthetic behavior cases only; no challenge rows or patient information.
 -- Replace <TARGET_SCHEMA> once, then connect actual facility IDs after profiling.
 
