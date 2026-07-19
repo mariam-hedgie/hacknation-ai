@@ -78,6 +78,23 @@ class ApiPersistenceTests(unittest.TestCase):
         deleted = self.client.delete("/api/plans/api-plan-1")
         self.assertEqual(deleted.status_code, 200)
         self.assertTrue(deleted.json()["deleted"])
+
+    def test_unverified_facility_name_opens_a_maps_search_not_directions(self) -> None:
+        response = self.client.post(
+            "/api/journey",
+            json={
+                "origin": "Mumbai, Maharashtra",
+                "destination": "City Heart Centre",
+                "mode": "car",
+                "distance_km": None,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        result = response.json()
+        self.assertTrue(result["destination_needs_confirmation"])
+        self.assertTrue(result["maps_url"].startswith("https://www.google.com/maps/search/?api=1&"))
+        self.assertNotIn("/maps/dir/", result["maps_url"])
         self.assertEqual(self.client.get("/api/plans").json()["plans"], [])
 
 

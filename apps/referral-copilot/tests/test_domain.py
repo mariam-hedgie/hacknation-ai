@@ -209,6 +209,31 @@ class ShortlistTests(unittest.TestCase):
 
         self.assertEqual([option.candidate.facility_id for option in result.options], ["near"])
 
+    def test_distance_limit_excludes_a_candidate_when_distance_is_unknown(self) -> None:
+        request = IntakeRequest(
+            care_task="known_referral",
+            confirmed_capability="cardiology",
+            location="Mumbai",
+            max_distance_km=5,
+            user_confirmed=True,
+        )
+
+        result = build_shortlist(
+            request,
+            [
+                FacilityCandidate(
+                    "unknown-distance",
+                    "City Heart Centre",
+                    "cardiology",
+                    EvidenceStatus.DOCUMENTED,
+                    distance_km=None,
+                )
+            ],
+        )
+
+        self.assertEqual(result.options, ())
+        self.assertIn("within 5 km", result.message)
+
     def test_arrival_feasibility_precedes_convenience_for_documented_matches(self) -> None:
         request = IntakeRequest(
             care_task="known_referral",

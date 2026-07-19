@@ -95,8 +95,15 @@ def _verified_receipts(
     """Return only spans found literally in the original dataset field."""
 
     receipts: list[tuple[str, str, str]] = []
+    raw_fields = _RAW_FIELDS.get(group_key, ())
+    available_raw_fields = tuple(field for field in raw_fields if _text(row.get(field)))
+    # The local challenge snapshot predates the raw_* columns but preserves
+    # literal supporting excerpts in each derived evidence array. Use that
+    # inspectable row/field only when no original raw field is present. If a raw
+    # field exists but disagrees, fail closed instead of falling through.
+    source_fields = available_raw_fields or (group_key,)
     for span in entry.get("evidence", []):
-        for raw_field in _RAW_FIELDS.get(group_key, ()):
+        for raw_field in source_fields:
             source_text = _text(row.get(raw_field))
             if source_text and _normalise(span) in _normalise(source_text):
                 receipts.append((raw_field, source_text, _text(span)))

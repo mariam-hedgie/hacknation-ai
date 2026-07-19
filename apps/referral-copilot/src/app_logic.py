@@ -96,7 +96,15 @@ def evaluate_confirmed_request(
 
     display_payload = dict(payload)
     display_payload["capability"] = request.confirmed_capability or request.medication_name or "the confirmed care need"
+    options = tuple(planner(display_payload))
+    message = None
+    if not options and request.max_distance_km is not None:
+        message = (
+            f"Aven could not verify a documented facility within {request.max_distance_km:g} km "
+            "of the entered location. Increase the limit or verify a facility in Maps."
+        )
     return PlanOutcome(
         safety_branch=SafetyBranch.PROCEED,
-        options=tuple(planner(display_payload)),
+        options=options,
+        message=message,
     )

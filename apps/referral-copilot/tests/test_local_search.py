@@ -45,6 +45,14 @@ def _write_data_file(records: list[dict]) -> Path:
     return Path(tmp.name)
 
 
+def _write_jsonl_data_file(records: list[dict]) -> Path:
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False, encoding="utf-8")
+    for record in records:
+        tmp.write(json.dumps(record) + "\n")
+    tmp.close()
+    return Path(tmp.name)
+
+
 class AvailabilityTests(unittest.TestCase):
     def test_unavailable_when_file_does_not_exist(self) -> None:
         client = LocalDataRetriever(data_path="/nonexistent/path/facilities.json")
@@ -62,6 +70,28 @@ class AvailabilityTests(unittest.TestCase):
 
 
 class RetrieveTests(unittest.TestCase):
+    def test_jsonl_snapshot_decodes_nested_facility_columns(self) -> None:
+        jsonl_row = {
+            **ROW_A,
+            "specialties": json.dumps(ROW_A["specialties"]),
+            "capabilities": json.dumps(ROW_A["capabilities"]),
+            "procedures": json.dumps(ROW_A["procedures"]),
+            "equipment": json.dumps(ROW_A["equipment"]),
+            "facility_facts": json.dumps(ROW_A["facility_facts"]),
+            "data_quality": json.dumps(ROW_A["data_quality"]),
+        }
+        path = _write_jsonl_data_file([jsonl_row])
+        try:
+            client = LocalDataRetriever(data_path=path)
+
+            rows = client.retrieve("cardiology", "Patna")
+
+            self.assertEqual([row["unique_id"] for row in rows], ["facility-a"])
+            self.assertEqual(rows[0]["capabilities"], ROW_A["capabilities"])
+            self.assertEqual(rows[0]["specialties"], ROW_A["specialties"])
+        finally:
+            path.unlink()
+
     def test_matches_capability_claim_substring(self) -> None:
         path = _write_data_file([ROW_A, ROW_B])
         try:
@@ -80,13 +110,30 @@ class RetrieveTests(unittest.TestCase):
         finally:
             path.unlink()
 
-    def test_location_is_accepted_but_never_filters(self) -> None:
+    def test_unknown_location_does_not_fabricate_a_city_filter(self) -> None:
         path = _write_data_file([ROW_A])
         try:
             client = LocalDataRetriever(data_path=path)
-            with_location = client.retrieve("cardiology", "Mumbai")
+            with_location = client.retrieve("cardiology", "Unknown place")
             without_location = client.retrieve("cardiology", None)
             self.assertEqual(with_location, without_location)
+        finally:
+            path.unlink()
+
+    def test_known_city_excludes_matching_facilities_in_another_city(self) -> None:
+        mumbai = {**ROW_A, "name": "Mumbai Cardiac Centre"}
+        kerala = {
+            **ROW_A,
+            "unique_id": "facility-kerala",
+            "name": "Kerala Cardiac Centre",
+        }
+        path = _write_data_file([mumbai, kerala])
+        try:
+            client = LocalDataRetriever(data_path=path)
+
+            rows = client.retrieve("cardiology", "Mumbai, Maharashtra")
+
+            self.assertEqual([row["unique_id"] for row in rows], ["facility-a"])
         finally:
             path.unlink()
 

@@ -62,9 +62,13 @@ export function JourneyPanel({ option, request }: { option: PlanOption; request:
       {journey && (
         <>
           <a className="btn btn-primary" href={journey.maps_url} target="_blank" rel="noreferrer">
-            Open route in Google Maps
+            {journey.destination_needs_confirmation ? "Find facility in Google Maps" : "Open route in Google Maps"}
           </a>
-          <p className="hint">Google Maps opens externally. Confirm the hospital address and branch before leaving.</p>
+          <p className="hint">
+            {journey.destination_needs_confirmation
+              ? "Google Maps opens a facility search. Choose and confirm the exact branch before starting a route."
+              : "Google Maps opens externally. Confirm the hospital address and branch before leaving."}
+          </p>
           {journey.estimate && (
             <div className="estimate-strip">
               <strong>Seeded comparison:</strong> about {journey.estimate.duration_minutes} minutes · ₹{journey.estimate.cost_low_rupees}–₹{journey.estimate.cost_high_rupees}

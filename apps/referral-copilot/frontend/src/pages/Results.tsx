@@ -115,8 +115,9 @@ export function Results() {
 
           {visible.length === 0 && (
             <div className="alert alert-info">
-              Every documented option here is on your blocklist. Unblock a facility in your profile to see routes
-              again.
+              {hiddenCount > 0
+                ? "Every documented option here is on your blocklist. Unblock a facility in your profile to see routes again."
+                : planResponse.message || "No documented facility match was found for this confirmed need."}
             </div>
           )}
 

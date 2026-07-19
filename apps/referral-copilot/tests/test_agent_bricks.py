@@ -105,6 +105,20 @@ class AvailabilityTests(unittest.TestCase):
 
 
 class MapperTests(unittest.TestCase):
+    def test_preserved_evidence_column_supports_jsonl_snapshot_rows(self) -> None:
+        snapshot_row = dict(RICH_ROW)
+        snapshot_row.pop("raw_capability")
+        snapshot_row.pop("raw_procedure")
+        snapshot_row.pop("raw_equipment")
+        snapshot_row.pop("raw_description")
+
+        [candidate] = AgentBricksClient(_configured()).assess_claims(
+            [snapshot_row], capability="cardiology", location="Patna"
+        )
+
+        self.assertEqual(candidate.evidence_status, EvidenceStatus.DOCUMENTED)
+        self.assertIn("capabilities [patna-district-01]", candidate.source_spans[0])
+
     def test_matched_claim_with_evidence_is_documented(self) -> None:
         client = AgentBricksClient(_configured())
 

@@ -29,7 +29,7 @@ from src.auth import AuthenticationError, AuthConfigurationError
 from src.backend import service as backend
 from src.backend.lakebase import plan_store_for_headers
 from src.demo_adapter import CARE_TASKS
-from src.journey import demo_journey_estimate, external_ticket_links, google_maps_directions_url
+from src.journey import demo_journey_estimate, external_ticket_links, google_maps_search_url
 from src.localization import SUPPORTED_LANGUAGES
 from src.nlp import configured_nlp_client, structure_intake
 from src.ui_contract import AvenUiBackend
@@ -180,7 +180,10 @@ def journey(request: JourneyRequest) -> dict[str, Any]:
             else None
         )
         return {
-            "maps_url": google_maps_directions_url(request.origin, request.destination, request.mode),
+            # A facility name alone is not a verified branch address. Search
+            # Maps and let the person confirm the branch before requesting a route.
+            "maps_url": google_maps_search_url(f"{request.destination}, {request.origin}"),
+            "destination_needs_confirmation": True,
             "estimate": estimate,
             "ticket_links": [asdict(link) for link in external_ticket_links(request.mode)],
         }

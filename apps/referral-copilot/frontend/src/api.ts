@@ -118,6 +118,7 @@ export interface IntakeDraft {
 
 export interface JourneyResult {
   maps_url: string;
+  destination_needs_confirmation: boolean;
   estimate: null | {
     duration_minutes: number;
     cost_low_rupees: number;

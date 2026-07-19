@@ -105,6 +105,14 @@ def google_maps_directions_url(origin: object, destination: object, mode: str) -
     return "https://www.google.com/maps/dir/?" + urlencode(params)
 
 
+def google_maps_search_url(query: object) -> str:
+    """Open a Maps search when Aven cannot identify a specific facility branch."""
+
+    return "https://www.google.com/maps/search/?" + urlencode(
+        {"api": "1", "query": _bounded_place(query, "Facility")}
+    )
+
+
 def demo_journey_estimate(distance_km: object, mode: str) -> JourneyEstimate:
     """Return a labelled, deterministic demo comparison from seeded assumptions."""
 

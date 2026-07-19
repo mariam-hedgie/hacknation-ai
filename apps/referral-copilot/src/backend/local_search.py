@@ -23,9 +23,27 @@ from pathlib import Path
 from typing import Any
 
 # apps/referral-copilot/src/backend/local_search.py -> repo root is 4 parents up.
-_DEFAULT_DATA_PATH = Path(__file__).resolve().parents[4] / "data" / "facilities_searchable.json"
+_DATA_DIR = Path(__file__).resolve().parents[4] / "data"
+_DEFAULT_DATA_PATH = _DATA_DIR / "facilities_searchable.json"
+_JSONL_DATA_PATH = _DATA_DIR / "facilities_searchable.jsonl"
 
 _MATCH_GROUPS = ("capabilities", "procedures", "equipment")
+_LOCATION_ALIASES = {
+    "bengaluru": ("bengaluru", "bangalore"),
+    "delhi": ("delhi", "new delhi"),
+    "jaipur": ("jaipur",),
+    "mumbai": ("mumbai", "bombay", "navi mumbai"),
+    "patna": ("patna",),
+    "pune": ("pune",),
+}
+_SERIALIZED_COLUMNS = (
+    "specialties",
+    "capabilities",
+    "procedures",
+    "equipment",
+    "facility_facts",
+    "data_quality",
+)
 
 
 def _normalise(text: str) -> str:
@@ -47,6 +65,44 @@ def _row_matches(row: dict[str, Any], needed: str) -> bool:
     return False
 
 
+def _known_city_aliases(location: str | None) -> tuple[str, ...]:
+    normalized = _normalise(location or "")
+    for aliases in _LOCATION_ALIASES.values():
+        if any(alias in normalized for alias in aliases):
+            return aliases
+    return ()
+
+
+def _row_mentions_city(row: dict[str, Any], aliases: tuple[str, ...]) -> bool:
+    """Use only an explicit city mention when local rows lack coordinates."""
+    if not aliases:
+        return True
+    text = _normalise(
+        " ".join(
+            str(row.get(key) or "")
+            for key in ("name", "address_city", "facility_facts")
+        )
+    )
+    return any(alias in text for alias in aliases)
+
+
+def _decode_row(row: Any) -> dict[str, Any] | None:
+    """Decode JSON-serialized complex columns from Databricks JSONL exports."""
+    if not isinstance(row, dict):
+        return None
+    decoded = dict(row)
+    for column in _SERIALIZED_COLUMNS:
+        value = decoded.get(column)
+        if not isinstance(value, str):
+            continue
+        try:
+            decoded[column] = json.loads(value)
+        except json.JSONDecodeError:
+            # Preserve the value so the downstream normalizer can fail closed.
+            pass
+    return decoded
+
+
 class LocalDataRetriever:
     def __init__(self, data_path: str | os.PathLike[str] | None = None) -> None:
         self._data_path = Path(data_path) if data_path is not None else self._resolve_path()
@@ -56,7 +112,9 @@ class LocalDataRetriever:
     @staticmethod
     def _resolve_path() -> Path:
         override = os.environ.get("AVEN_LOCAL_DATA_PATH", "").strip()
-        return Path(override) if override else _DEFAULT_DATA_PATH
+        if override:
+            return Path(override)
+        return _DEFAULT_DATA_PATH if _DEFAULT_DATA_PATH.is_file() else _JSONL_DATA_PATH
 
     def available(self) -> bool:
         return self._data_path.is_file()
@@ -69,8 +127,15 @@ class LocalDataRetriever:
         self._load_attempted = True
         try:
             with open(self._data_path, encoding="utf-8") as f:
-                data = json.load(f)
-            self._rows = data if isinstance(data, list) else None
+                if self._data_path.suffix.casefold() == ".jsonl":
+                    data = [json.loads(line) for line in f if line.strip()]
+                else:
+                    data = json.load(f)
+            if not isinstance(data, list):
+                self._rows = None
+            else:
+                decoded_rows = (_decode_row(row) for row in data)
+                self._rows = [row for row in decoded_rows if row is not None]
         except Exception:
             self._rows = None
         return self._rows
@@ -79,10 +144,10 @@ class LocalDataRetriever:
         """Return up to `k` candidate rows matching `capability`, or None if
         the local snapshot is unavailable/unreadable.
 
-        `location` is accepted for interface parity with vector_search.retrieve
-        but not used to filter: this dataset carries no coordinates (see
-        agent_bricks.py's distance_km=None note), so pretending to filter by
-        distance here would fabricate precision the data doesn't support.
+        When the entered location names a supported city, rows must explicitly
+        mention that city. The snapshot lacks coordinates, so Aven still shows
+        the distance as unknown instead of pretending it enforced an exact
+        kilometre radius.
         """
         rows = self._load()
         if rows is None:
@@ -90,7 +155,12 @@ class LocalDataRetriever:
         needed = _normalise(capability)
         if not needed:
             return []
-        matches = [row for row in rows if _row_matches(row, needed)]
+        city_aliases = _known_city_aliases(location)
+        matches = [
+            row
+            for row in rows
+            if _row_matches(row, needed) and _row_mentions_city(row, city_aliases)
+        ]
         return matches[:k]
 
     def count_matches(self, capability: str, *, sample_size: int = 20) -> tuple[int, list[dict[str, Any]]] | None:

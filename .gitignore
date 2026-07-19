@@ -16,4 +16,4 @@ apps/referral-copilot/.aven_profiles.json
 .gstack/
 
 # Downloaded challenge/facility data (download_facilities.py) — never commit
-
+/data

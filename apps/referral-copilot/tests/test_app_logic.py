@@ -90,6 +90,20 @@ class ConfirmedJourneyTests(unittest.TestCase):
         self.assertEqual(len(outcome.options), 3)
         self.assertTrue(all("demo" in option["summary"].lower() for option in outcome.options))
 
+    def test_empty_planner_with_distance_limit_explains_that_no_route_was_verified(self) -> None:
+        outcome = evaluate_confirmed_request(
+            {
+                "care_task": "known_referral",
+                "capability": "cardiology",
+                "location": "Mumbai",
+                "max_distance_km": 5,
+            },
+            planner=lambda _: [],
+        )
+
+        self.assertEqual(outcome.options, ())
+        self.assertIn("within 5 km", outcome.message)
+
 
 if __name__ == "__main__":
     unittest.main()

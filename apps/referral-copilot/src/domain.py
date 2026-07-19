@@ -309,16 +309,24 @@ def build_shortlist(
         candidate
         for candidate in candidates
         if _matches_confirmed_need(request, candidate)
-        and not (
-            request.max_distance_km is not None
-            and candidate.distance_km is not None
-            and candidate.distance_km > request.max_distance_km
+        and (
+            request.max_distance_km is None
+            or (
+                candidate.distance_km is not None
+                and candidate.distance_km <= request.max_distance_km
+            )
         )
     ]
     if not eligible:
+        message = "No documented facility match was found for this confirmed need."
+        if request.max_distance_km is not None:
+            message = (
+                f"Aven could not verify a documented facility within {request.max_distance_km:g} km "
+                "of the entered location. Increase the limit or verify a facility in Maps."
+            )
         return ShortlistResult(
             SafetyBranch.PROCEED,
-            message="No documented facility match was found for this confirmed need.",
+            message=message,
         )
 
     options = sorted(

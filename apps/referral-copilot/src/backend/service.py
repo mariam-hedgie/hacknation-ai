@@ -138,8 +138,13 @@ def _live_plan_routes(request: dict[str, Any]) -> list[dict[str, Any]] | None:
             shortlist_span.set_outputs(
                 {"safety_branch": result.safety_branch.value, "option_count": len(result.options)}
             )
-        if result.safety_branch is not SafetyBranch.PROCEED or not result.options:
+        if result.safety_branch is not SafetyBranch.PROCEED:
             return None
+        # Retrieval succeeded, but the user's constraints left no verified
+        # facility. Preserve that empty result instead of replacing it with
+        # seeded demo cards that could violate the stated distance limit.
+        if not result.options:
+            return []
         return [_ranked_to_display(opt, i) for i, opt in enumerate(result.options)]
     except Exception:
         # Any mapping/ranking issue must not break the live demo: use demo data.

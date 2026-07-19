@@ -14,6 +14,7 @@ from src.journey import (  # noqa: E402
     demo_journey_estimate,
     external_ticket_links,
     google_maps_directions_url,
+    google_maps_search_url,
 )
 
 
@@ -31,6 +32,13 @@ class GoogleMapsUrlTests(unittest.TestCase):
     def test_blank_origin_or_destination_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             google_maps_directions_url("", "Hospital", "car")
+
+    def test_search_url_asks_google_maps_to_disambiguate_an_unverified_branch(self) -> None:
+        url = google_maps_search_url("City Heart Centre, Mumbai")
+
+        self.assertTrue(url.startswith("https://www.google.com/maps/search/?api=1&"))
+        self.assertIn("query=City+Heart+Centre%2C+Mumbai", url)
+        self.assertNotIn("key=", url)
 
 
 class DemoEstimateTests(unittest.TestCase):
