@@ -66,6 +66,33 @@ npm run check:elevenlabs
 
 The ElevenLabs check reports configuration only; it does not print the key.
 
+## Deploy a public demo (Streamlit Community Cloud)
+
+GitHub Pages cannot host Aven — Pages serves static files only, and Aven is a
+Streamlit server that must hold credentials outside the browser. Streamlit
+Community Cloud is free and needs no code changes:
+
+1. Sign in at <https://share.streamlit.io> with the GitHub account that can read
+   this repository.
+2. Create an app pointing at this repo, branch `main`, entrypoint
+   `apps/referral-copilot/app.py`. Community Cloud reads
+   [`apps/referral-copilot/requirements.txt`](apps/referral-copilot/requirements.txt)
+   because it sits beside the entrypoint.
+3. Set the Python version to 3.13 or lower in **Advanced settings**. Community
+   Cloud does not offer the 3.14 used by some local checkouts.
+4. Optionally paste credentials into **Settings → Secrets** in TOML form
+   (`DATABRICKS_SERVER_HOSTNAME = "..."`). Streamlit exposes top-level secrets as
+   environment variables, which is exactly what `BackendConfig.from_env` reads,
+   so no code changes are needed.
+
+Deployed without secrets, the app runs its seeded demo path and labels every
+result as demo data. That is the honest fallback, not live challenge evidence —
+a public link is a UI demo unless Databricks secrets are configured.
+
+Community Cloud apps are public and sleep when idle. Never put a Databricks
+personal access token in its Secrets; use it for the demo path, and use
+Databricks Apps for the credentialed submission deploy.
+
 ## Integration modes
 
 | Capability | Live mode | Safe fallback |
