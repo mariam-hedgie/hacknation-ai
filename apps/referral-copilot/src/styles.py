@@ -418,6 +418,16 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
 .aven-quality-note.sparse {
   background: var(--unknown-bg); color: var(--muted); border-color: var(--line-strong);
 }
+/* Neutral by design. A trust level says how much of the record backs a claim,
+   so it must never read as a green "good hospital" endorsement. */
+.aven-trust-chip {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  background: var(--paper-2); border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--ink); border-radius: 10px;
+  padding: 0.55rem 0.8rem; margin: 0.5rem 0;
+}
+.aven-trust-label { font-size: 0.86rem; font-weight: 700; color: var(--ink); }
+.aven-trust-why { font-size: 0.78rem; color: var(--muted); }
 
 .aven-emergency {
   background: var(--emergency-bg); border: 1px solid var(--emergency-border);
@@ -517,12 +527,14 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
 </style>
 """
 
-EVIDENCE_BADGES: dict[str, tuple[str, str]] = {
-    "documented": ("check", "Documented in facility records"),
-    "conflicting": ("alert", "Details disagree — call first"),
-    "not_documented": ("question", "We could not confirm this"),
-    "external_corroborated": ("link", "Official external source"),
-    "user_context": ("note", "You told us this"),
+# Icon only — the wording is governed copy and arrives already translated from
+# src/localization.py. Never put user-facing evidence text in this module.
+EVIDENCE_BADGE_ICONS: dict[str, str] = {
+    "documented": "check",
+    "conflicting": "alert",
+    "not_documented": "question",
+    "external_corroborated": "link",
+    "user_context": "note",
 }
 
 _ICONS = {"check": "✅", "alert": "⚠️", "question": "❔", "link": "🔗", "note": "🗒️"}
@@ -531,11 +543,26 @@ _ICONS = {"check": "✅", "alert": "⚠️", "question": "❔", "link": "🔗", 
 _LIVE_STATUSES = {"documented", "external_corroborated"}
 
 
-def evidence_badge_html(status: str) -> str:
-    icon_key, copy = EVIDENCE_BADGES.get(status, EVIDENCE_BADGES["not_documented"])
+def evidence_badge_html(status: str, label: str) -> str:
+    """Render an evidence badge. `label` must be approved, translated copy."""
+    icon_key = EVIDENCE_BADGE_ICONS.get(status, EVIDENCE_BADGE_ICONS["not_documented"])
     icon = _ICONS[icon_key]
     dot = '<span class="aven-pulse-dot"></span>' if status in _LIVE_STATUSES else ""
-    return f'<span class="aven-badge {status}">{dot}{icon} {copy}</span>'
+    return f'<span class="aven-badge {status}">{dot}{icon} {escape(label)}</span>'
+
+
+def trust_chip_html(label: str, explanation: str) -> str:
+    """Trust receipt line for the Evidence Receipt.
+
+    Deliberately styled as a neutral chip, not a score or a quality rating: it
+    says how much of the record backs a claim, never how good a facility is.
+    """
+    return (
+        '<div class="aven-trust-chip">'
+        f'<span class="aven-trust-label">{escape(label)}</span>'
+        f'<span class="aven-trust-why">{escape(explanation)}</span>'
+        "</div>"
+    )
 
 
 # Enrichment text comes from facility records via a model, so every builder below

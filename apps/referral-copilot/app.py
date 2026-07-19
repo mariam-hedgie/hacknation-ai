@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 import time
+from html import escape
 from pathlib import Path
 
 import streamlit as st
@@ -26,7 +27,12 @@ from src import enrichment as enrich
 from src import profiles
 from src.backend import service as backend
 from src.demo_adapter import CARE_TASKS, next_question
-from src.localization import SUPPORTED_LANGUAGES, resolve_language
+from src.localization import (
+    EVIDENCE_STATUS_KEYS,
+    SUPPORTED_LANGUAGES,
+    TRUST_LEVEL_KEYS,
+    resolve_language,
+)
 from src.ui_contract import AvenUiBackend
 from src.styles import (
     CSS,
@@ -41,6 +47,7 @@ from src.styles import (
     marquee_html,
     option_icon,
     quality_note_html,
+    trust_chip_html,
 )
 
 # Language names come from src/localization.py — the module that owns approved
@@ -349,8 +356,21 @@ def t() -> dict:
 
 
 def tx(key: str) -> object:
-    """UI copy lookup with per-key English fallback for untranslated keys."""
+    """Decorative UI copy, with per-key English fallback for untranslated keys.
+
+    For safety, evidence, and trust wording use safety_copy() instead — those
+    strings are governed by src/localization.py and must not silently fall back.
+    """
     return UI_COPY.get(ui_language(), {}).get(key, UI_COPY["en"][key])
+
+
+def safety_copy(key: str) -> str:
+    """Approved translation for governed copy (see src/localization.py).
+
+    Goes through the façade so the view never reaches past it, and raises on an
+    unknown key rather than rendering a blank where a safety string belongs.
+    """
+    return ui_backend().copy(key, ui_language())["text"]
 
 
 def scale_labels():
@@ -766,16 +786,18 @@ def show_intake() -> None:
 
 
 def show_emergency_panel() -> None:
+    # Every string here is governed copy: an emergency instruction must never
+    # render in English to a user who chose Hindi or Marathi.
     st.markdown(
-        """
+        f"""
         <div class="aven-emergency">
-          <h3>Get urgent help now</h3>
-          <p>Seek local emergency care now. Do not wait for a facility comparison.</p>
+          <h3>{escape(safety_copy("emergency_title"))}</h3>
+          <p>{escape(safety_copy("emergency_body"))}</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Start a new non-urgent request"):
+    if st.button(safety_copy("emergency_restart")):
         st.session_state.stage = "intake"
         st.session_state.draft_message = ""
         st.rerun()
@@ -831,10 +853,7 @@ def show_safety_branch(response) -> None:
 
     if response.safety_branch == "confirm_care_setting":
         st.warning(response.message)
-        st.caption(
-            "Tell us the specialty or service you think you need, then confirm again. "
-            "Aven plans access to care and does not diagnose."
-        )
+        st.caption(safety_copy("confirm_care_setting_help"))
         return
 
     if response.safety_branch == "incomplete_intake":
@@ -852,6 +871,18 @@ def show_enrichment(option: dict) -> None:
     data = enrich.normalize(option.get("enrichment"))
 
     st.markdown(chips_html(data["specialties"]), unsafe_allow_html=True)
+
+    # Trust receipt (src/trust.py): how much of the record backs this facility's
+    # documented services. Rendered above the claims so the caveat is read first.
+    assessment = enrich.assess_record(data, row_id=option.get("facility", ""))
+    st.markdown(
+        trust_chip_html(
+            safety_copy(TRUST_LEVEL_KEYS[assessment.trust_level.value]),
+            assessment.explanation,
+        ),
+        unsafe_allow_html=True,
+    )
+
     for line in enrich.cautions(data):
         sparse = line.startswith("This facility's record is sparse")
         st.markdown(quality_note_html(line, sparse=sparse), unsafe_allow_html=True)
@@ -878,6 +909,16 @@ def show_enrichment(option: dict) -> None:
             for conflict in conflicts:
                 st.markdown(claim_html(conflict, [], True), unsafe_allow_html=True)
 
+        # Groups the trust assessment found no verified span for. A gap in the
+        # record, stated as such — never as an absent service.
+        if assessment.missing_fields:
+            st.markdown(
+                f'<div class="aven-claim-group">{escape(safety_copy("what_we_could_not_confirm"))}</div>',
+                unsafe_allow_html=True,
+            )
+            for field in assessment.missing_fields:
+                st.markdown(quality_note_html(field, sparse=True), unsafe_allow_html=True)
+
 
 def show_option_card(index: int, option: dict) -> None:
     evidence_status = option.get("evidence_status", "not_documented")
@@ -895,7 +936,15 @@ def show_option_card(index: int, option: dict) -> None:
             name_extra = f' <span class="aven-rating-badge">★ {rating}/5</span>' if rating else ""
             st.markdown(f'<p class="aven-facility-name">{facility}{name_extra}</p>', unsafe_allow_html=True)
         with top[1]:
-            st.markdown(evidence_badge_html(evidence_status), unsafe_allow_html=True)
+            st.markdown(
+                evidence_badge_html(
+                    evidence_status,
+                    safety_copy(
+                        EVIDENCE_STATUS_KEYS.get(evidence_status, "not_confirmed")
+                    ),
+                ),
+                unsafe_allow_html=True,
+            )
 
         st.markdown(f'<p class="aven-fact">{option["summary"]}</p>', unsafe_allow_html=True)
         st.markdown(f'<p class="aven-fact"><strong>{option["travel"]}</strong></p>', unsafe_allow_html=True)
@@ -921,7 +970,7 @@ def show_option_card(index: int, option: dict) -> None:
                 st.rerun()
         with button_cols[2]:
             with st.expander("Why this option?"):
-                st.markdown("**What we could not confirm**")
+                st.markdown(f"**{safety_copy('what_we_could_not_confirm')}**")
                 st.write(option["unknowns"])
                 st.markdown("**Ranking explanation**")
                 st.caption(option["ranking"])

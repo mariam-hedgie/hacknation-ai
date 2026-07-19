@@ -7,14 +7,17 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
 from src.demo_adapter import build_demo_options
+from src.domain import EvidenceStatus
 from src.enrichment import (
     CLAIM_GROUPS,
+    assess_record,
     cautions,
     is_empty,
     iter_claims,
     normalize,
     unverified_count,
 )
+from src.trust import TrustLevel
 
 FULL = {
     "capabilities": [{"claim": "Outpatient cardiology", "evidence": ["daily cardiology OPD"]}],
@@ -119,6 +122,56 @@ class DemoOptionTests(unittest.TestCase):
         self.assertTrue(any(not q["has_rich_description"] for q in quality))
         self.assertTrue(any(q["conflicting_claims"] for q in quality))
         self.assertTrue(any(q["possible_merged_facility"] for q in quality))
+
+
+class TrustIntegrationTests(unittest.TestCase):
+    """assess_record is the seam between the extractor schema and src/trust.py."""
+
+    def test_a_conflict_outranks_otherwise_good_evidence(self):
+        # FULL has spans across three groups *and* a conflicting claim.
+        assessment = assess_record(normalize(FULL))
+        self.assertEqual(assessment.trust_level, TrustLevel.CONFLICTING)
+        self.assertEqual(assessment.status, EvidenceStatus.CONFLICTING)
+        self.assertTrue(assessment.contradictions)
+
+    def test_corroboration_counts_distinct_groups_not_repeated_spans(self):
+        one_group = {
+            "capabilities": [
+                {"claim": "Cardiology", "evidence": ["span one", "span two", "span three"]}
+            ],
+            "data_quality": {"has_rich_description": True, "conflicting_claims": []},
+        }
+        assessment = assess_record(normalize(one_group))
+        self.assertEqual(assessment.corroborating_fields, 1)
+        self.assertEqual(assessment.trust_level, TrustLevel.WEAK)
+
+    def test_more_groups_raise_the_level(self):
+        three_groups = {
+            "capabilities": [{"claim": "Cardiology", "evidence": ["cardiology OPD"]}],
+            "procedures": [{"claim": "ECG", "evidence": ["ECG on site"]}],
+            "equipment": [{"claim": "Echo", "evidence": ["echo installed"]}],
+            "data_quality": {"has_rich_description": True, "conflicting_claims": []},
+        }
+        assessment = assess_record(normalize(three_groups))
+        self.assertEqual(assessment.corroborating_fields, 3)
+        self.assertEqual(assessment.trust_level, TrustLevel.STRONG)
+
+    def test_a_record_with_no_spans_is_not_established(self):
+        assessment = assess_record(normalize({"capabilities": [{"claim": "X", "evidence": []}]}))
+        self.assertEqual(assessment.trust_level, TrustLevel.NOT_ESTABLISHED)
+        self.assertEqual(assessment.status, EvidenceStatus.NOT_DOCUMENTED)
+
+    def test_groups_without_a_span_are_reported_as_missing_not_absent(self):
+        assessment = assess_record(normalize(FULL))
+        # Equipment has a claim but no evidence span in FULL.
+        self.assertIn("Equipment", assessment.missing_fields)
+
+    def test_every_seeded_demo_option_can_be_assessed(self):
+        for option in build_demo_options({"capability": "cardiology"}):
+            with self.subTest(facility=option["facility"]):
+                assessment = assess_record(normalize(option["enrichment"]))
+                self.assertIn(assessment.trust_level, set(TrustLevel))
+                self.assertTrue(assessment.explanation)
 
 
 if __name__ == "__main__":

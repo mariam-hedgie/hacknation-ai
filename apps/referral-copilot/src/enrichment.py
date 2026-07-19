@@ -31,6 +31,8 @@ from __future__ import annotations
 
 from typing import Any, Iterator
 
+from .trust import ClaimEvidence, TrustAssessment, assess_claim
+
 # The three claim groups share the {"claim", "evidence"} shape; facility_facts
 # uses "fact" for the same slot. (group key, UI heading, text field)
 CLAIM_GROUPS: tuple[tuple[str, str, str], ...] = (
@@ -150,3 +152,49 @@ def cautions(enrichment: dict[str, Any]) -> list[str]:
 def unverified_count(enrichment: dict[str, Any]) -> int:
     """How many extracted claims arrived without a literal supporting span."""
     return sum(1 for _, _, _, verified in iter_claims(enrichment) if not verified)
+
+
+def _claim_evidence(enrichment: dict[str, Any], row_id: str) -> list[ClaimEvidence]:
+    """Express this record's spans as trust receipts, one per literal span.
+
+    Each claim group is a distinct source field, which is what `assess_claim`
+    counts as corroboration. `source_text` is the group's combined spans, so the
+    containment check confirms a span really belongs to the group it is filed
+    under and drops empty or malformed entries.
+
+    What this cannot check: the extractor hands us one flat span per claim, not
+    the facility's raw record, so nothing here re-verifies a span against the
+    original source text. That check belongs in the extractor (`agent_bricks`).
+    """
+    receipts: list[ClaimEvidence] = []
+    for key, heading, field in CLAIM_GROUPS:
+        entries = enrichment.get(key, [])
+        group_text = " ".join(span for entry in entries for span in entry["evidence"])
+        for entry in entries:
+            for span in entry["evidence"]:
+                receipts.append(
+                    ClaimEvidence(
+                        source_field=heading,
+                        source_text=group_text,
+                        cited_span=span,
+                        source_row_id=row_id,
+                    )
+                )
+    return receipts
+
+
+def assess_record(enrichment: dict[str, Any], *, row_id: str = "") -> TrustAssessment:
+    """Grade how well this facility's record is evidenced, via `src/trust.py`.
+
+    This is a statement about the *record*, not the facility: a weak assessment
+    means little was documented, never that a service is absent or poor. The
+    claim is deliberately generic because we can match spans literally but
+    cannot judge whether a span semantically supports a specific capability.
+    """
+    quality = enrichment.get("data_quality", _EMPTY_QUALITY)
+    return assess_claim(
+        "This facility's documented services",
+        _claim_evidence(enrichment, row_id or "row not documented"),
+        contradictions=quality.get("conflicting_claims") or (),
+        expected_fields=[heading for _, heading, _ in CLAIM_GROUPS],
+    )

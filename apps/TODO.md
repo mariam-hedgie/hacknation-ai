@@ -22,9 +22,9 @@ tool from `app.py` directly. Fill the stubs; the UI does not change.
 | Domain rules / ranking | `src/domain.py` | ✅ done (pure) |
 | Databricks SQL repo | `src/databricks_adapter.py` | ✅ query written, needs executor |
 | Seeded demo data | `src/demo_adapter.py` | ✅ fallback |
-| UI façade | `src/ui_contract.py` | ⚠️ restored from `mariam`; app.py uses it for status/travel/voice only |
-| Approved translations | `src/localization.py` | ⚠️ restored from `mariam`; only 6 approved keys |
-| Trust receipts | `src/trust.py` | ⚠️ restored from `mariam`; not yet called by the UI |
+| UI façade | `src/ui_contract.py` | ✅ sole planning entry point; safety gates run, delegates to `backend.service.plan_routes` |
+| Approved translations | `src/localization.py` | ✅ 21 keys; owns all safety/evidence/trust copy — ⚠️ new translations need native review |
+| Trust receipts | `src/trust.py` | ✅ rendered in the Evidence Receipt via `enrichment.assess_record()` |
 | Extractor output schema | `src/enrichment.py` | ✅ normalizes the Agent Bricks schema for display |
 
 ## Environment variables (set as Databricks App resources)
@@ -112,7 +112,22 @@ feedback vocabulary.
   demo_user_id) vs `src/profiles.py`; `mariam`'s `auth.py` (pseudonymous owner
   ID, never stores email) vs `app.py`'s `do_login` (stores name + email). See
   `docs/security/login-and-persistence-audit.md`. Team decision needed.
-- `trust.py` is restored but nothing calls it; it overlaps `enrichment.py`.
+- **✅ `trust.py` is wired.** `enrichment.assess_record()` bridges the extractor
+  schema to `trust.assess_claim`: each claim group is a distinct source field, so
+  corroboration counts groups (not repeated spans in one group), and a conflict
+  outranks otherwise-good evidence. The Evidence Receipt shows the level and its
+  explanation as a neutral chip, plus groups with no verified span under "What we
+  could not confirm". The three seeded facilities exercise `strong` /
+  `not_established` / `conflicting`.
+  - Known limit, documented in `enrichment._claim_evidence`: the extractor gives
+    one flat span per claim, not the facility's raw record, so nothing here
+    re-verifies a span against original source text. That check belongs in
+    `agent_bricks` and does not exist yet.
+- **⚠️ New translations need a native reviewer.** The 15 keys added for the
+  emergency panel, evidence statuses, and trust levels were machine-drafted.
+  `localization.py` is called *approved* translations; these are not approved
+  until a Hindi and a Marathi speaker sign them off. Highest priority: the three
+  `emergency_*` keys.
 
 ## Frontend follow-ups (small)
 
