@@ -29,6 +29,12 @@ The selected final product direction is documented in
 [`docs/final-product-plan.md`](docs/final-product-plan.md). Follow it for
 feature priorities, conversational-intake guardrails, and the patient-facing
 experience; defer to the original PDF if it conflicts with the challenge.
+Before adding languages, countries, providers, maps, authentication methods,
+or other post-hackathon scope, read
+[`docs/future-improvements-roadmap.md`](docs/future-improvements-roadmap.md).
+It defines the order of expansion, global adapter boundaries, localization
+quality gates, and evidence required before a future capability may be called
+live. Hackathon submission blockers always take priority over that roadmap.
 The public product name is **Aven**; use it in user-facing copy, pitch,
 screens, and documentation. Keep technical deployment identifiers separate
 unless a deployment naming decision is explicitly confirmed.
