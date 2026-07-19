@@ -28,12 +28,16 @@ from .agent_bricks import AgentBricksClient
 from .config import BackendConfig
 from .genie import GenieClient
 from .lakebase import LakebasePersistence
+from .local_ask import LocalAskClient
+from .local_search import LocalDataRetriever
 from .vector_search import VectorSearchClient
 
 _CONFIG = BackendConfig.from_env()
 _vector_search = VectorSearchClient(_CONFIG)
+_local_search = LocalDataRetriever()
 _agent = AgentBricksClient(_CONFIG)
 _genie = GenieClient(_CONFIG)
+_local_ask = LocalAskClient(_local_search)  # shares the loaded snapshot with _local_search
 _persistence = LakebasePersistence(_CONFIG)
 
 
@@ -53,6 +57,15 @@ def status() -> dict[str, bool]:
         "genie": _CONFIG.has_genie,
         "lakebase": _CONFIG.has_lakebase,
         "mlflow": _CONFIG.has_mlflow,
+        # Real facility data from a local snapshot (data/facilities_searchable.json),
+        # not a live Databricks connection — see local_search.py. Lets the UI say
+        # "real data, local snapshot" instead of lumping it in with seeded demo
+        # content just because backend_mode() isn't "live".
+        "local_data": _local_search.available(),
+        # Local stand-in for Genie: an LLM extracts a filter, the answer/rows
+        # come from the local snapshot. See local_ask.py. Lets the Ask page's
+        # submit button enable even when Genie/Databricks aren't configured.
+        "local_ask": _local_ask.available(),
     }
 
 
@@ -86,6 +99,17 @@ def _live_plan_routes(request: dict[str, Any]) -> list[dict[str, Any]] | None:
     ) as retrieve_span:
         rows = _vector_search.retrieve(capability, location)
         retrieve_span.set_outputs({"row_count": len(rows) if rows is not None else 0, "available": rows is not None})
+
+    if rows is None:
+        # No live Vector Search configured/reachable — fall back to the local
+        # real-data snapshot (still real facility data, just not a live
+        # connection) before giving up to seeded demo options entirely.
+        with tracing.span(
+            "local_search.retrieve", inputs={"capability": capability, "location": location}
+        ) as local_span:
+            rows = _local_search.retrieve(capability, location)
+            local_span.set_outputs({"row_count": len(rows) if rows is not None else 0, "available": rows is not None})
+
     if rows is None:
         return None
 
@@ -184,16 +208,26 @@ def _ranked_to_display(option: RankedOption, index: int) -> dict[str, Any]:
 # ---------- Planner data questions (Genie seam) ----------
 
 def ask_data_question(question: str, *, conversation_id: str | None = None) -> dict[str, Any] | None:
-    """Answer a free-text planner question against the facility tables via Genie.
+    """Answer a free-text planner question against the facility tables.
 
-    Returns None when Genie is unavailable or the question can't be answered —
-    callers must show an honest "not answered" state, never a fabricated one.
-    The returned `sql` should be shown alongside the answer as its evidence.
+    Tries Genie (live Databricks NL -> SQL) first; falls back to LocalAskClient
+    (an LLM extracts a capability filter, the answer/rows come straight back out
+    of the local snapshot — never from the LLM's own "knowledge") when Genie
+    isn't configured. Returns None when neither is available or the question
+    can't be answered — callers must show an honest "not answered" state, never
+    a fabricated one. The returned `sql` should be shown alongside the answer
+    as its evidence.
     """
     with tracing.span("genie.ask", inputs={"question": question}) as ask_span:
         result = _genie.ask(question, conversation_id=conversation_id)
         ask_span.set_outputs({"answered": result is not None})
-        return result
+
+    if result is None:
+        with tracing.span("local_ask.ask", inputs={"question": question}) as local_ask_span:
+            result = _local_ask.ask(question, conversation_id=conversation_id)
+            local_ask_span.set_outputs({"answered": result is not None})
+
+    return result
 
 
 # ---------- Persistence (Lakebase seam) ----------

@@ -84,7 +84,13 @@ class AgentBricksClient:
         self._config = config
 
     def available(self) -> bool:
-        return self._config.has_agent
+        # No self._config.has_agent gate: as this module's docstring explains,
+        # extraction already happened upstream, so assess_claims is a pure
+        # mapper with no serving-endpoint dependency. Gating it on
+        # AVEN_SERVING_ENDPOINT would make a fully-configured live Vector
+        # Search silently fall back to demo data, since nothing sets a
+        # serving endpoint for a function that no longer calls one.
+        return True
 
     def assess_claims(
         self, rows: list[dict[str, Any]], *, capability: str

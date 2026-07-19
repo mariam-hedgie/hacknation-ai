@@ -1,2 +1,8 @@
+# Root dependencies: the standalone extract/flatten/database scripts, plus the
+# Streamlit app's own set. Streamlit Community Cloud may read either this file or
+# the one beside the entrypoint, so including the app's here keeps the deployed
+# build identical whichever it picks.
+-r apps/referral-copilot/requirements.txt
+
 databricks-sql-connector
 python-dotenv

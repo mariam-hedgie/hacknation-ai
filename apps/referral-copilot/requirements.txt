@@ -7,10 +7,17 @@ openai>=2.37,<3
 pydantic>=2.11,<3
 python-dotenv>=1,<2
 
+# Local API for the React frontend (frontend/) — src/backend/api.py.
+fastapi>=0.115
+uvicorn>=0.30
+
 # Data Legend required stack — used by src/backend/* once the stubs are wired.
 # Kept here so the Databricks App deploy installs them; all imports in
 # src/backend are guarded so the app still runs locally without them.
-# TODO: uncomment/pin as each integration lands (see apps/TODO.md).
+# TODO: uncomment/pin as each integration lands (see TODO.md at the repo root).
 # mlflow>=3.0                     # observability + trace cost tracking
 databricks-vectorsearch>=0.40     # Mosaic AI Vector Search retrieval
 # databricks-genie                # Genie autonomous data tasks (via databricks-sdk)
+
+# Local stand-in for Genie uses the OpenAI dependency pinned above for question
+# interpretation only, never the final answer text.

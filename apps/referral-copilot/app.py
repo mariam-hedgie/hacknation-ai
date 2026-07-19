@@ -94,23 +94,16 @@ STRINGS = {
         "boundary": "aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
         "promise": "Tell us what you need. We will help you plan the next step with evidence from facility records.",
         "steps": ["Tell us", "Confirm", "Your plan"],
-        "vitals": "Connected across facility networks",
         "eyebrow": "Care Navigation · Evidence-Backed",
     },
     "hi": {
-        "tagline": "सही देखभाल मार्ग, प्रमाण के साथ।",
         "boundary": "Aven देखभाल तक पहुंच की योजना बनाने में मदद करता है — यह निदान नहीं करता, दवा नहीं लिखता, कीमतों का वादा नहीं करता, लाइव उपलब्धता नहीं दिखाता, और न ही आपातकालीन देखभाल की जगह लेता है।",
-        "promise": "हमें बताएं आपको क्या चाहिए। हम सुविधा रिकॉर्ड के प्रमाण के साथ अगला कदम बनाने में मदद करेंगे।",
         "steps": ["बताएं", "पुष्टि करें", "आपकी योजना"],
-        "vitals": "सुविधा नेटवर्क में सक्रिय रूप से जुड़ा हुआ",
         "eyebrow": "देखभाल मार्गदर्शन · प्रमाण-आधारित",
     },
     "mr": {
-        "tagline": "योग्य काळजी मार्ग, पुराव्यासह.",
         "boundary": "Aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते — हे निदान करत नाही, औषध लिहून देत नाही, किमतींचे आश्वासन देत नाही, थेट उपलब्धता दाखवत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
-        "promise": "तुम्हाला काय हवे आहे ते सांगा. आम्ही सुविधा नोंदींच्या पुराव्यासह पुढील पाऊल ठरवण्यास मदत करू.",
         "steps": ["सांगा", "पुष्टी करा", "तुमची योजना"],
-        "vitals": "सुविधा नेटवर्कमध्ये सक्रियपणे जोडलेले",
         "eyebrow": "काळजी मार्गदर्शन · पुरावा-आधारित",
     },
 }
@@ -1389,14 +1382,25 @@ TRAVEL_MODES = (
 )
 
 
+def _evidence_pipeline_status() -> str:
+    """3-way, honest about data provenance: a live Databricks connection, a
+    real local snapshot (data/facilities_searchable.json, no live connection),
+    or fully seeded/fabricated demo content — never conflate the middle case
+    with either end."""
+    if backend.backend_mode() == "live":
+        return "Live Databricks evidence"
+    if backend.status().get("local_data"):
+        return "Real facility data (local snapshot) — not a live Databricks connection"
+    return "Seeded demo data — Vector Search and Agent Bricks are not connected"
+
+
 def show_system_status() -> None:
     """What is actually connected right now. Capability state only — the façade
     deliberately exposes no credentials or endpoint identifiers."""
     status = ui_backend().service_status()
     nlp_connected = configured_nlp_client() is not None
     rows = [
-        ("Evidence pipeline", "Live Databricks evidence" if backend.backend_mode() == "live"
-         else "Seeded demo data — Vector Search and Agent Bricks are not connected"),
+        ("Evidence pipeline", _evidence_pipeline_status()),
         ("Routing provider", f"{status['map_provider']}"
          + (" (live)" if status["map_live_provider"] else " (offline estimates only)")),
         ("Facility database", f"Databricks SQL {status['databricks_mode']}"),
@@ -1431,13 +1435,21 @@ def show_results() -> None:
     if st.session_state.pop("save_notice", None):
         st.success("Plan saved. Open “My plans” in the top bar whenever you need it.")
 
-    if backend.backend_mode() == "demo":
-        st.markdown(
-            '<div class="aven-datasource-note">Seeded demo data — the Databricks evidence pipeline '
-            '(Vector Search · Agent Bricks · Lakebase) is not connected in this environment. '
-            'Every option is labelled as a demo.</div>',
-            unsafe_allow_html=True,
-        )
+    if backend.backend_mode() != "live":
+        if backend.status().get("local_data"):
+            st.markdown(
+                '<div class="aven-datasource-note">Real facility data from a local snapshot — '
+                'not a live Databricks connection. Evidence below is source-grounded, but confirm '
+                'anything time-sensitive (availability, hours, price) by phone.</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="aven-datasource-note">Seeded demo data — the Databricks evidence pipeline '
+                '(Vector Search · Agent Bricks · Lakebase) is not connected in this environment. '
+                'Every option is labelled as a demo.</div>',
+                unsafe_allow_html=True,
+            )
 
     show_system_status()
 
@@ -1513,12 +1525,21 @@ def show_ask_data() -> None:
     if st.button("I need a personal route instead", type="primary"):
         go_to_intake(None)
 
-    genie_available = backend.status().get("genie", False)
-    if not genie_available:
+    tool_status = backend.status()
+    genie_available = tool_status.get("genie", False)
+    local_ask_available = tool_status.get("local_ask", False)
+    ask_available = genie_available or local_ask_available
+    if local_ask_available and not genie_available:
         st.markdown(
-            '<div class="aven-datasource-note">Quick lookup needs the live facility database, which is not '
-            "connected in this local demo. The care-planning forms still work with clearly labelled sample "
-            "options.</div>",
+            '<div class="aven-datasource-note">Quick lookup is using real facility data from a local snapshot, '
+            "not a live Databricks connection. Confirm anything time-sensitive with the facility.</div>",
+            unsafe_allow_html=True,
+        )
+    elif not ask_available:
+        st.markdown(
+            '<div class="aven-datasource-note">Quick lookup is not connected here. It needs either the live '
+            "facility database or the configured local snapshot. Plan care still works with clearly labelled "
+            "sample options.</div>",
             unsafe_allow_html=True,
         )
 
@@ -1540,7 +1561,7 @@ def show_ask_data() -> None:
             key="ask_q",
             placeholder="e.g. How many facilities near Patna document dialysis?",
         )
-        submitted = st.form_submit_button("Check facility records", type="primary", disabled=not genie_available)
+        submitted = st.form_submit_button("Check facility records", type="primary", disabled=not ask_available)
 
     if submitted and question.strip():
         with st.spinner("Finding the answer…"):
