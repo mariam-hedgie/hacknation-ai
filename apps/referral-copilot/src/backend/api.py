@@ -161,7 +161,7 @@ def structure_intake_request(request: StructureIntakeRequest) -> dict[str, Any]:
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(
             status_code=503,
-            detail="Automatic structuring is unavailable. Review the request manually.",
+            detail="Draft assistance is unavailable. Review the request manually.",
         ) from exc
     return asdict(draft)
 

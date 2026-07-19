@@ -11,19 +11,38 @@ aven helps people turn a care-access question into a short, understandable list 
 
 ## Run locally
 
-From the repository root:
+From the repository root, do this once:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install -r apps/referral-copilot/requirements.txt
+.venv/bin/python -m pip install -r apps/referral-copilot/requirements.txt
 cd apps/referral-copilot
 npm install
 npm run build
-AVEN_AUTH_MODE=local_demo AVEN_ALLOW_LOCAL_DEMO=true python run_app.py
 ```
 
-Open [http://localhost:8010](http://localhost:8010).
+Then start the app with the project virtual environment. This avoids relying on a system `python` command that may point to the wrong version:
+
+```bash
+cd apps/referral-copilot
+AVEN_AUTH_MODE=local_demo AVEN_ALLOW_LOCAL_DEMO=true DATABRICKS_APP_PORT=8010 ../../.venv/bin/python run_app.py
+```
+
+Open [http://127.0.0.1:8010](http://127.0.0.1:8010). If the terminal says port `8010` is already in use, the app is already running—open that link instead of starting a second copy.
+
+### Optional local request drafting
+
+The app works without a model. To turn a free-text note into an editable draft
+without using OpenAI, install Ollama, then run:
+
+```bash
+ollama serve
+ollama pull gemma3:4b
+```
+
+Keep the default `AVEN_NLP_PROVIDER=ollama`, `OLLAMA_HOST`, and `OLLAMA_MODEL`
+values from `.env.example`. Ollama runs server-side; the result is always an
+editable suggestion and never starts a search by itself.
 
 ## How to use aven
 

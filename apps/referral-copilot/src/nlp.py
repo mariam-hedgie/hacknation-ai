@@ -1,42 +1,31 @@
-"""Review-gated natural-language intake powered by the OpenAI Responses API.
+"""Review-gated, local natural-language intake for Aven.
 
-The model structures a short user-authored request. It does not search, rank,
-diagnose, or persist anything, and its output is untrusted until the user edits
-and confirms the form.
+The optional helper turns a short note into an editable form draft.  It never
+searches, ranks, diagnoses, or saves data.  Ollama is contacted only through a
+server-side, explicitly configured endpoint; its JSON is validated before the
+browser sees it.  If it is unavailable, the normal typed form remains the
+complete path.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Protocol
+from typing import Literal, Mapping, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
-DEFAULT_OPENAI_MODEL = "gpt-5.6-sol"
+DEFAULT_OLLAMA_MODEL = "gemma3:4b"
+DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434"
 MAX_INTAKE_CHARACTERS = 2_000
 
-_CARE_TASKS = {
-    "known_referral",
-    "refill",
-    "lab",
-    "vaccination",
-    "symptom_first",
-    "follow_up",
-}
+_CARE_TASKS = {"known_referral", "refill", "lab", "vaccination", "symptom_first", "follow_up"}
 _URGENCY = {"routine", "soon", "urgent"}
-_TRAVEL_MODES = {
-    "walk",
-    "bicycle",
-    "motorbike",
-    "car",
-    "bus",
-    "train",
-    "taxi",
-    "plane",
-    "ambulance",
-}
+_TRAVEL_MODES = {"walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane", "ambulance"}
 
 
 class IntakeNlpConfigurationError(ValueError):
@@ -49,31 +38,11 @@ class IntakeNlpUnavailableError(RuntimeError):
 
 class _IntakeExtraction(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
-    care_task: Literal[
-        "known_referral",
-        "refill",
-        "lab",
-        "vaccination",
-        "symptom_first",
-        "follow_up",
-    ]
+    care_task: Literal["known_referral", "refill", "lab", "vaccination", "symptom_first", "follow_up"]
     capability: str | None = Field(default=None, max_length=200)
     location: str | None = Field(default=None, max_length=200)
     urgency: Literal["routine", "soon", "urgent"] = "routine"
-    travel_modes: list[
-        Literal[
-            "walk",
-            "bicycle",
-            "motorbike",
-            "car",
-            "bus",
-            "train",
-            "taxi",
-            "plane",
-            "ambulance",
-        ]
-    ] = Field(default_factory=list, max_length=8)
+    travel_modes: list[Literal["walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane", "ambulance"]] = Field(default_factory=list, max_length=8)
     language: str | None = Field(default=None, max_length=80)
     clarification_question: str | None = Field(default=None, max_length=240)
 
@@ -94,51 +63,45 @@ class IntakeClient(Protocol):
     def extract(self, text: str, *, model: str) -> Mapping[str, object]: ...
 
 
-_INSTRUCTIONS = """You structure a care-access request for Aven.
-Return only the requested schema. Do not diagnose, recommend treatment, infer a
-facility capability, or claim that a service is available. Preserve the user's
-own care wording. Choose symptom_first when the requested care task is unclear.
-Extract a location only when the user states one. Use clarification_question for
-one missing detail that the user should review. This output is a draft and will
-never trigger search until the user confirms it."""
+_INSTRUCTIONS = """You structure a care-access request for Aven. Return JSON matching the supplied schema only. Do not diagnose, recommend treatment, infer a facility capability, or claim that a service is available. Preserve the user's own care wording. Choose symptom_first when the care task is unclear. Extract location only when explicitly stated. Ask at most one short clarification question. The result is an editable draft and never starts a search."""
 
 
-class OpenAIIntakeClient:
-    """Small boundary around the official SDK, injectable for offline tests."""
+class OllamaIntakeClient:
+    """Minimal server-side client for Ollama's local ``/api/chat`` endpoint."""
 
-    def __init__(
-        self,
-        api_key: str | None = None,
-        *,
-        sdk_client: object | None = None,
-    ) -> None:
-        if sdk_client is None:
-            try:
-                from openai import OpenAI
-            except ImportError as exc:
-                raise IntakeNlpUnavailableError(
-                    "Install the OpenAI Python package to enable language structuring."
-                ) from exc
-            sdk_client = OpenAI(
-                api_key=api_key,
-                timeout=15.0,
-                max_retries=1,
-            )
-        self._client = sdk_client
+    def __init__(self, host: str = DEFAULT_OLLAMA_HOST, *, timeout_seconds: float = 12.0) -> None:
+        host = host.strip().rstrip("/")
+        if not host.startswith(("http://", "https://")):
+            raise IntakeNlpConfigurationError("OLLAMA_HOST must be an http(s) URL.")
+        self._host = host
+        self._timeout_seconds = timeout_seconds
 
     def extract(self, text: str, *, model: str) -> Mapping[str, object]:
-        response = self._client.responses.parse(
-            model=model,
-            instructions=_INSTRUCTIONS,
-            input=text,
-            text_format=_IntakeExtraction,
-            store=False,
+        schema = _IntakeExtraction.model_json_schema()
+        body = json.dumps({
+            "model": model,
+            "messages": [
+                {"role": "system", "content": _INSTRUCTIONS},
+                {"role": "user", "content": f"Schema: {json.dumps(schema, separators=(',', ':'))}\n\nRequest: {text}"},
+            ],
+            "format": schema,
+            "stream": False,
+            "options": {"temperature": 0},
+        }).encode("utf-8")
+        request = Request(
+            f"{self._host}/api/chat", data=body,
+            headers={"Content-Type": "application/json"}, method="POST",
         )
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise IntakeNlpUnavailableError(
-                "OpenAI did not return a structured draft. Continue with the form."
-            )
+        try:
+            with urlopen(request, timeout=self._timeout_seconds) as response:  # noqa: S310 - configured server endpoint
+                payload = json.loads(response.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise IntakeNlpUnavailableError("Local language structuring is unavailable.") from exc
+        content = payload.get("message", {}).get("content") if isinstance(payload, dict) else None
+        try:
+            parsed = _IntakeExtraction.model_validate_json(content)
+        except (ValidationError, TypeError) as exc:
+            raise IntakeNlpUnavailableError("Local language structuring returned an invalid draft.") from exc
         return parsed.model_dump()
 
 
@@ -149,57 +112,39 @@ def _clean(value: object, *, limit: int) -> str | None:
     return text or None
 
 
-def configured_nlp_client(
-    env: Mapping[str, str] | None = None,
-) -> IntakeClient | None:
+def configured_nlp_client(env: Mapping[str, str] | None = None) -> IntakeClient | None:
     source = os.environ if env is None else env
-    key = (source.get("OPENAI_API_KEY") or "").strip()
-    if not key or key.casefold().startswith(("todo", "replace_me", "your_")):
+    provider = (source.get("AVEN_NLP_PROVIDER") or "ollama").strip().casefold()
+    if provider in {"", "disabled", "none"}:
+        return None
+    if provider != "ollama":
         return None
     try:
-        return OpenAIIntakeClient(key)
-    except IntakeNlpUnavailableError:
+        return OllamaIntakeClient(source.get("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST)
+    except IntakeNlpConfigurationError:
         return None
 
 
-def structure_intake(
-    text: str,
-    *,
-    client: IntakeClient | None,
-    model: str | None = None,
-) -> IntakeDraft:
+def structure_intake(text: str, *, client: IntakeClient | None, model: str | None = None) -> IntakeDraft:
     normalized = " ".join(str(text or "").replace("\x00", " ").split())
     if not normalized:
-        raise IntakeNlpConfigurationError(
-            "Describe the care request before asking OpenAI to structure it."
-        )
+        raise IntakeNlpConfigurationError("Describe the care request before making a draft.")
     if len(normalized) > MAX_INTAKE_CHARACTERS:
-        raise IntakeNlpConfigurationError(
-            f"Keep the request under {MAX_INTAKE_CHARACTERS:,} characters."
-        )
+        raise IntakeNlpConfigurationError(f"Keep the request under {MAX_INTAKE_CHARACTERS:,} characters.")
     if client is None:
-        raise IntakeNlpUnavailableError(
-            "OpenAI language structuring is not configured. Continue with the form."
-        )
-
-    selected_model = (model or os.getenv("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL).strip()
+        raise IntakeNlpUnavailableError("Language structuring is not configured. Continue with the form.")
+    selected_model = (model or os.getenv("OLLAMA_MODEL") or DEFAULT_OLLAMA_MODEL).strip()
     try:
         raw = client.extract(normalized, model=selected_model)
     except (IntakeNlpConfigurationError, IntakeNlpUnavailableError):
         raise
     except Exception as exc:
-        raise IntakeNlpUnavailableError(
-            "OpenAI language structuring is temporarily unavailable. Continue with the form."
-        ) from exc
+        raise IntakeNlpUnavailableError("Language structuring is temporarily unavailable. Continue with the form.") from exc
 
     care_task = _clean(raw.get("care_task"), limit=40) or "symptom_first"
-    if care_task not in _CARE_TASKS:
-        care_task = "symptom_first"
     urgency = _clean(raw.get("urgency"), limit=20) or "routine"
-    if urgency not in _URGENCY:
-        urgency = "routine"
-    supplied_modes = raw.get("travel_modes")
     modes: list[str] = []
+    supplied_modes = raw.get("travel_modes")
     if isinstance(supplied_modes, (list, tuple)):
         for value in supplied_modes:
             mode = (_clean(value, limit=30) or "").casefold()
@@ -207,12 +152,11 @@ def structure_intake(
                 mode = "bicycle"
             if mode in _TRAVEL_MODES and mode not in modes:
                 modes.append(mode)
-
     return IntakeDraft(
-        care_task=care_task,
+        care_task=care_task if care_task in _CARE_TASKS else "symptom_first",
         capability=_clean(raw.get("capability"), limit=200),
         location=_clean(raw.get("location"), limit=200),
-        urgency=urgency,
+        urgency=urgency if urgency in _URGENCY else "routine",
         travel_modes=tuple(modes),
         language=_clean(raw.get("language"), limit=80),
         clarification_question=_clean(raw.get("clarification_question"), limit=240),

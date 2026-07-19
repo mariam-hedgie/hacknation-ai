@@ -17,3 +17,6 @@ apps/referral-copilot/.aven_profiles.json
 
 # Downloaded challenge/facility data (download_facilities.py) — never commit
 /data
+# Generated address-discovery ledger. It can contain third-party source
+# excerpts and stays separate from immutable facility evidence.
+/apps/referral-copilot/data/facility_address_candidates.jsonl

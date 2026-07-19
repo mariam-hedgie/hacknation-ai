@@ -38,7 +38,7 @@ export function Intake() {
   const [prefLanguage, setPrefLanguage] = useState("");
   const [emergencyChecked, setEmergencyChecked] = useState(false);
   const [status, setStatus] = useState<ServiceStatus | null>(null);
-  const [allowOpenAI, setAllowOpenAI] = useState(false);
+  const [allowDrafting, setAllowDrafting] = useState(false);
   const [structuring, setStructuring] = useState(false);
   const [structureMessage, setStructureMessage] = useState("");
   const [voiceConsent, setVoiceConsent] = useState(false);
@@ -67,7 +67,7 @@ export function Intake() {
     );
   };
 
-  const structureWithOpenAI = async () => {
+  const makeDraftFromNotes = async () => {
     setStructureMessage("");
     if (!message.trim()) {
       setStructureMessage("Describe what you need in the notes box first.");
@@ -84,7 +84,7 @@ export function Intake() {
       if (draft.language) setPrefLanguage(draft.language);
       setStructureMessage(draft.clarification_question || "Draft filled. Review every field before continuing.");
     } catch {
-      setStructureMessage("OpenAI structuring is not configured right now. Continue with the form.");
+      setStructureMessage("Draft assistance is not available right now. Continue with the form.");
     } finally {
       setStructuring(false);
     }
@@ -274,15 +274,15 @@ export function Intake() {
             </div>
 
             <details className="disclosure">
-              <summary>Optional: Structure with OpenAI</summary>
+              <summary>Optional: make a draft from my notes</summary>
               <p className="hint">
-                This only turns your own notes into an editable draft. It does not diagnose, search, or choose a hospital.
+                This turns your notes into an editable draft. It does not diagnose, search, or choose a hospital. You must review every field.
               </p>
               <label className="checkbox-row">
-                <input type="checkbox" checked={allowOpenAI} onChange={(e) => setAllowOpenAI(e.target.checked)} />
-                <span>I agree to send only this note to OpenAI and review the result.</span>
+                <input type="checkbox" checked={allowDrafting} onChange={(e) => setAllowDrafting(e.target.checked)} />
+                <span>I understand this is an editable suggestion, not medical advice.</span>
               </label>
-              <button className="btn" disabled={!allowOpenAI || structuring} onClick={structureWithOpenAI}>
+              <button className="btn" disabled={!allowDrafting || structuring} onClick={makeDraftFromNotes}>
                 {structuring ? "Structuring…" : "Fill an editable draft"}
               </button>
               {structureMessage && <div className="alert alert-info">{structureMessage}</div>}

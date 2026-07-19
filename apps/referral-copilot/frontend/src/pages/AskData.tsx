@@ -70,7 +70,7 @@ export function AskData() {
       {statusLoaded && !askAvailable && (
         <div className="datasource-note">
           Neither Genie nor the local fallback is configured (need AVEN_GENIE_SPACE_ID + a SQL warehouse, or
-          OPENAI_API_KEY + a local data snapshot), so this page can't answer yet.
+          a local data snapshot), so this page can't answer yet.
         </div>
       )}
 

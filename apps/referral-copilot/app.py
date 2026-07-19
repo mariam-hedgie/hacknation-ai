@@ -825,16 +825,16 @@ def show_intake() -> None:
     nlp_client = configured_nlp_client()
     if nlp_client is not None:
         st.caption(
-            "Optional auto-fill: aven can use OpenAI to turn your message into the short form below. "
+            "Optional auto-fill: aven can use local draft assistance to turn your message into the short form below. "
             "You will review every field before any search. The form also works without this."
         )
-        openai_consent = st.checkbox(
-            "Use OpenAI to auto-fill this form from my message"
+        draft_consent = st.checkbox(
+            "Use local draft assistance to auto-fill this form from my message"
         )
         if st.button(
             "Auto-fill my form",
-            disabled=not openai_consent or not natural_request.strip(),
-            help="This sends only the text above to OpenAI and creates editable fields. Nothing is searched until you confirm.",
+            disabled=not draft_consent or not natural_request.strip(),
+            help="This sends only the text above to local draft assistance and creates editable fields. Nothing is searched until you confirm.",
         ):
             try:
                 structured = structure_intake(natural_request, client=nlp_client)
@@ -853,7 +853,7 @@ def show_intake() -> None:
                 st.warning(str(exc))
     else:
         st.caption(
-            "Auto-fill isn't set up here (it needs an OpenAI key). Just fill in the short form below — it only takes a moment."
+            "Auto-fill isn't set up here. Just fill in the short form below — it only takes a moment."
         )
 
     draft = st.session_state.get("nlp_draft") or {}
@@ -1405,7 +1405,7 @@ def show_system_status() -> None:
          + (" (live)" if status["map_live_provider"] else " (offline estimates only)")),
         ("Facility database", f"Databricks SQL {status['databricks_mode']}"),
         ("Voice input", status["voice_message"]),
-        ("Language structuring", "OpenAI connected" if nlp_connected else "Manual form only"),
+        ("Language structuring", "Local draft assistance connected" if nlp_connected else "Manual form only"),
     ]
     with st.expander("What is connected right now"):
         for label, value in rows:

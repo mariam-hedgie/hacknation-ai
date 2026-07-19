@@ -174,10 +174,10 @@ class SimplifiedExperienceTests(unittest.TestCase):
         source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn("send this recording to ElevenLabs", source)
 
-    def test_openai_intake_requires_consent_and_review(self):
+    def test_optional_draft_requires_consent_and_review(self):
         source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
-        self.assertIn("Use OpenAI to auto-fill this form", source)
-        self.assertIn("sends only the text above to OpenAI", source)
+        self.assertIn("Use local draft assistance to auto-fill this form", source)
+        self.assertIn("sends only the text above to local draft assistance", source)
         self.assertIn("Review every detail", source)
 
     def test_my_plans_is_always_available_from_the_header(self):

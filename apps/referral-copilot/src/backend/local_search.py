@@ -22,6 +22,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from ..address_enrichment import verified_locations
+
 def _default_data_path() -> Path:
     """Locate the optional local facility extract.
 
@@ -40,6 +42,7 @@ def _default_data_path() -> Path:
 
 
 _DEFAULT_DATA_PATH = _default_data_path()
+_DEFAULT_ENRICHMENT_PATH = _DEFAULT_DATA_PATH.parent / "facility_address_candidates.jsonl"
 
 _MATCH_GROUPS = ("capabilities", "procedures", "equipment")
 _LOCATION_ALIASES = {
@@ -128,7 +131,7 @@ class LocalDataRetriever:
         override = os.environ.get("AVEN_LOCAL_DATA_PATH", "").strip()
         if override:
             return Path(override)
-        return _DEFAULT_DATA_PATH if _DEFAULT_DATA_PATH.is_file() else _JSONL_DATA_PATH
+        return _DEFAULT_DATA_PATH
 
     def available(self) -> bool:
         return self._data_path.is_file()
@@ -148,8 +151,21 @@ class LocalDataRetriever:
             if not isinstance(data, list):
                 self._rows = None
             else:
-                decoded_rows = (_decode_row(row) for row in data)
-                self._rows = [row for row in decoded_rows if row is not None]
+                decoded_rows = [row for row in (_decode_row(row) for row in data) if row is not None]
+                # Only reviewer-approved branch locations are attached. Candidate
+                # web discoveries remain isolated and cannot affect a route.
+                approved = verified_locations(_DEFAULT_ENRICHMENT_PATH)
+                for row in decoded_rows:
+                    facility_id = str(row.get("unique_id") or row.get("facility_id") or "")
+                    enrichment = approved.get(facility_id)
+                    if enrichment is None:
+                        continue
+                    row["address_city"] = enrichment.city or row.get("address_city")
+                    row["address_text"] = enrichment.address_text
+                    row["latitude"] = enrichment.latitude
+                    row["longitude"] = enrichment.longitude
+                    row["address_source_url"] = enrichment.source_url
+                self._rows = decoded_rows
         except Exception:
             self._rows = None
         return self._rows

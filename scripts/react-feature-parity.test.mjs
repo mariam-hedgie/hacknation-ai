@@ -39,7 +39,8 @@ test("React exposes the consolidated planning actions", () => {
   const intake = read("apps/referral-copilot/frontend/src/pages/Intake.tsx");
   const journey = read("apps/referral-copilot/frontend/src/components/JourneyPanel.tsx");
   const backend = read("apps/referral-copilot/src/backend/api.py");
-  assert.match(intake, /Structure with OpenAI/);
+  assert.match(intake, /make a draft from my notes/);
+  assert.doesNotMatch(intake, /OpenAI/);
   assert.match(intake, /Required arrival date/);
   assert.match(intake, /Travel modes/);
   assert.match(intake, /Transcribe for review/);
