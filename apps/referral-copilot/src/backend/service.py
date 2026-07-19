@@ -26,7 +26,7 @@ from .vector_search import VectorSearchClient
 _CONFIG = BackendConfig.from_env()
 _vector_search = VectorSearchClient(_CONFIG)
 _agent = AgentBricksClient(_CONFIG)
-_genie = GenieClient(_CONFIG)  # noqa: F841 - part of the stack, used by planner queries
+_genie = GenieClient(_CONFIG)
 _persistence = LakebasePersistence(_CONFIG)
 
 
@@ -138,6 +138,19 @@ def _ranked_to_display(option: RankedOption, index: int) -> dict[str, Any]:
         "evidence_status": c.evidence_status.value,
         "enrichment": enrichment.normalize(c.enrichment),
     }
+
+
+# ---------- Planner data questions (Genie seam) ----------
+
+def ask_data_question(question: str, *, conversation_id: str | None = None) -> dict[str, Any] | None:
+    """Answer a free-text planner question against the facility tables via Genie.
+
+    Returns None when Genie is unavailable or the question can't be answered —
+    callers must show an honest "not answered" state, never a fabricated one.
+    The returned `sql` should be shown alongside the answer as its evidence.
+    """
+    with tracing.span("genie.ask"):
+        return _genie.ask(question, conversation_id=conversation_id)
 
 
 # ---------- Persistence (Lakebase seam) ----------

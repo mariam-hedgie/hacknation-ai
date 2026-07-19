@@ -16,6 +16,7 @@ import time
 from html import escape
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -410,6 +411,8 @@ def initialize_state() -> None:
         "language_notice": None,
         "plan_response": None,  # last confirm_and_plan outcome, incl. safety branch
         "emergency_reported": False,
+        "ask_conversation_id": None,
+        "ask_history": [],
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -495,11 +498,11 @@ def show_header_bar() -> None:
     CSS makes sticky and full-bleed."""
     with st.container(key="aven_header"):
         has_saved = bool(st.session_state.saved_plans)
-        # brand | home | forms | [saved] | spacer | language | account
+        # brand | home | forms | ask | [saved] | spacer | language | account
         if has_saved:
-            widths = [1.5, 0.7, 0.9, 0.9, 0.5, 1.0, 1.0]
+            widths = [1.4, 0.7, 0.9, 0.7, 0.8, 0.4, 1.0, 1.0]
         else:
-            widths = [1.7, 0.8, 1.0, 0.6, 1.1, 1.1]
+            widths = [1.5, 0.7, 1.0, 0.8, 0.5, 1.1, 1.1]
         cols = st.columns(widths, vertical_alignment="center")
         idx = 0
 
@@ -517,6 +520,11 @@ def show_header_bar() -> None:
                 for tile in FEATURE_TILES:
                     if st.button(f"{tile['icon']}  {tile['title']}", key=f"navform_{tile['key']}", use_container_width=True):
                         go_to_intake(tile["key"])
+        idx += 1
+        with cols[idx]:
+            if st.button("Ask", key="page_ask"):
+                st.session_state.stage = "ask"
+                st.rerun()
         idx += 1
         if has_saved:
             with cols[idx]:
@@ -1082,6 +1090,64 @@ def show_results() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def show_ask_data() -> None:
+    """Planner data questions via the Genie seam (src/backend/genie.py):
+    a free-text question goes to a Databricks Genie Space, which generates
+    governed SQL against the facility tables and returns rows. Separate from
+    the referral flow — this is for coverage/aggregate questions like "how
+    many facilities near Patna document dialysis?", not a single user's plan.
+    Always shows the generated SQL alongside the answer as its evidence."""
+    st.markdown('<div class="aven-section-title">Planner data questions</div>', unsafe_allow_html=True)
+    st.markdown("## Ask Aven about the data")
+    st.caption(
+        "Aven turns this into governed SQL over the facility tables via Databricks Genie and shows "
+        "the query it ran — this is aggregate/coverage data, not a personal care plan."
+    )
+
+    genie_available = backend.status().get("genie", False)
+    if not genie_available:
+        st.markdown(
+            '<div class="aven-datasource-note">Genie is not connected in this environment '
+            "(no AVEN_GENIE_SPACE_ID / Databricks SQL warehouse configured), so this page can't "
+            "answer yet. Once wired, questions here get translated to SQL against the real facility "
+            "tables.</div>",
+            unsafe_allow_html=True,
+        )
+
+    with st.form("ask_data_form"):
+        question = st.text_input(
+            "Your question",
+            placeholder="e.g. How many facilities near Patna document dialysis?",
+        )
+        submitted = st.form_submit_button("Ask", type="primary", disabled=not genie_available)
+
+    if submitted and question.strip():
+        with st.spinner("Asking Genie…"):
+            result = backend.ask_data_question(question, conversation_id=st.session_state.ask_conversation_id)
+        if result is None:
+            st.warning("Aven could not answer that — Genie may be unavailable or found nothing to say. Try rephrasing.")
+        else:
+            st.session_state.ask_conversation_id = result.get("conversation_id")
+            st.session_state.ask_history.append({"question": question, "result": result})
+
+    for turn in reversed(st.session_state.ask_history):
+        result = turn["result"]
+        st.markdown(f'<p class="aven-fact"><strong>You asked:</strong> {turn["question"]}</p>', unsafe_allow_html=True)
+        if result.get("answer"):
+            st.markdown(result["answer"])
+        if result.get("sql"):
+            with st.expander("Generated SQL (the evidence for this answer)"):
+                st.code(result["sql"], language="sql")
+        if result.get("rows"):
+            st.dataframe(pd.DataFrame(result["rows"]), use_container_width=True)
+        st.divider()
+
+    if st.session_state.ask_history and st.button("Clear conversation"):
+        st.session_state.ask_conversation_id = None
+        st.session_state.ask_history = []
+        st.rerun()
+
+
 def show_profile() -> None:
     profile = current_profile()
     logged_in = is_logged_in()
@@ -1191,6 +1257,9 @@ def main() -> None:
     elif stage == "profile":
         show_header_bar()
         show_profile()
+    elif stage == "ask":
+        show_header_bar()
+        show_ask_data()
     else:
         show_flow_header()
         if stage == "intake":
