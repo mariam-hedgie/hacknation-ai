@@ -3,7 +3,7 @@ import type { PlanOption, PlanRequestBody } from "../api";
 import { EvidenceBadge } from "./Evidence";
 import { EnrichmentView } from "./EnrichmentView";
 import { EVIDENCE_STATUS_KEYS, useGovernedCopy } from "../i18n/governed";
-import { OPTION_ICONS } from "../i18n/copy";
+import { IconBan, OptionIcon } from "./Icons";
 import { Reveal } from "./Reveal";
 import { JourneyPanel } from "./JourneyPanel";
 
@@ -22,7 +22,6 @@ export function OptionCard({ index, option, request, rating, isBlocked, onSave, 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [note, setNote] = useState("");
   const evidenceStatus = option.evidence_status ?? "not_documented";
-  const icon = OPTION_ICONS[option.label] ?? "📍";
   const rank = Math.min(index, 2);
 
   return (
@@ -31,7 +30,8 @@ export function OptionCard({ index, option, request, rating, isBlocked, onSave, 
         <div className="card-top">
           <div>
             <div className="option-label">
-              {icon} {option.label}
+              <OptionIcon label={option.label} size={14} />
+              {option.label}
             </div>
             <p className="facility-name">
               {option.facility}
@@ -77,7 +77,7 @@ export function OptionCard({ index, option, request, rating, isBlocked, onSave, 
           </button>
           {saveStatus === "error" && <span className="save-error">Not saved. Secure storage did not confirm the write.</span>}
           <button className="btn" onClick={onBlock} disabled={isBlocked}>
-            {isBlocked ? "Blocked" : "🚫 Never refer me here"}
+            {isBlocked ? "Blocked" : <><IconBan size={16} /> Never refer me here</>}
           </button>
           <details className="disclosure" style={{ flex: 1, minWidth: 140 }}>
             <summary>Why this option?</summary>

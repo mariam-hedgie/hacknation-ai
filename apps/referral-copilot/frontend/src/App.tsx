@@ -3,6 +3,7 @@ import { useAppState } from "./state/AppState";
 import { GovernedCopyProvider } from "./i18n/governed";
 import { STRINGS } from "./i18n/copy";
 import { Header } from "./components/Header";
+import { IconShield } from "./components/Icons";
 import { Landing } from "./pages/Landing";
 import { Intake } from "./pages/Intake";
 import { Confirm } from "./pages/Confirm";
@@ -27,7 +28,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
         </Routes>
         <footer className="footer">
-          <p className="footer-boundary">🛡️ {strings.boundary}</p>
+          <p className="footer-boundary"><IconShield size={16} /> {strings.boundary}</p>
         </footer>
       </div>
     </GovernedCopyProvider>

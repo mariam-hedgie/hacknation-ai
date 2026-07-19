@@ -5,6 +5,7 @@ import { FEATURE_TILES_EN, STEP_KEYS, STRINGS, TASK_QUESTIONS, scaleLabel, tileC
 import { useGovernedCopy } from "../i18n/governed";
 import { api, type ServiceStatus } from "../api";
 import { Stepper } from "../components/Stepper";
+import { TaskIcon } from "../components/Icons";
 
 type Urgency = "Routine" | "Soon" | "Urgent";
 const TRAVEL_MODES = ["walk", "bicycle", "motorbike", "bus", "train", "car", "taxi", "plane", "ambulance"];
@@ -150,7 +151,7 @@ export function Intake() {
   };
 
   return (
-    <div className="page flow-page">
+    <div className="page flow-page flow-narrow">
       <Stepper current={STEP_KEYS.indexOf("intake")} labels={strings.steps} />
 
       <div className="switcher-label">{tx(language, "switcher_label")}</div>
@@ -163,14 +164,15 @@ export function Intake() {
               className={`task-chip ${careTask === tile.key ? "active" : ""}`}
               onClick={() => setCareTask(tile.key)}
             >
-              {tile.icon} {copy.title}
+              <TaskIcon name={tile.key} size={16} />
+              {copy.title}
             </button>
           );
         })}
       </div>
 
       <div className="form-head">
-        <div className="form-icon">{meta.icon}</div>
+        <div className="form-icon"><TaskIcon name={careTask} size={26} /></div>
         <div>
           <h2 className="form-title">{meta.title}</h2>
           <p className="form-blurb">{meta.desc}</p>

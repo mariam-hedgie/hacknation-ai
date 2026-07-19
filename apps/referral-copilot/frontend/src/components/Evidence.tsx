@@ -1,19 +1,13 @@
-const EVIDENCE_ICONS: Record<string, string> = {
-  documented: "✅",
-  conflicting: "⚠️",
-  not_documented: "❔",
-  external_corroborated: "🔗",
-  user_context: "🗒️",
-};
+import { EvidenceIcon } from "./Icons";
 
 const LIVE_STATUSES = new Set(["documented", "external_corroborated"]);
 
 export function EvidenceBadge({ status, label }: { status: string; label: string }) {
-  const icon = EVIDENCE_ICONS[status] ?? EVIDENCE_ICONS.not_documented;
   return (
     <span className={`badge ${status}`}>
       {LIVE_STATUSES.has(status) && <span className="pulse-dot" />}
-      {icon} {label}
+      <EvidenceIcon status={status} size={14} />
+      {label}
     </span>
   );
 }

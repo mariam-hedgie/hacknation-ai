@@ -269,19 +269,18 @@ export function scaleLabel(lang: LangCode, value: string): string {
 
 export interface FeatureTile {
   key: string;
-  icon: string;
   title: string;
   desc: string;
   detail_label: string;
 }
 
 export const FEATURE_TILES_EN: FeatureTile[] = [
-  { key: "known_referral", icon: "🩺", title: "Referral or procedure", desc: "Plan a route for a specialty visit or procedure your doctor referred.", detail_label: "What did your doctor refer you for?" },
-  { key: "refill", icon: "💊", title: "Medication refill", desc: "Find where to refill a prescription or reach a pharmacy.", detail_label: "What medication do you need refilled?" },
-  { key: "lab", icon: "🧪", title: "Lab or blood test", desc: "Locate a facility for a test or blood draw your clinician requested.", detail_label: "What test or blood draw was requested?" },
-  { key: "vaccination", icon: "💉", title: "Vaccination", desc: "Find where to get a vaccine or routine immunization.", detail_label: "Which vaccine or immunization are you planning for?" },
-  { key: "follow_up", icon: "📅", title: "Follow-up question", desc: "Reconnect with a facility or doctor about an appointment.", detail_label: "Which facility or doctor are you trying to reach?" },
-  { key: "symptom_first", icon: "🧭", title: "Not sure what I need", desc: "Talk it through and plan a safe next step. This is not a diagnosis.", detail_label: "What is worrying you today?" },
+  { key: "known_referral", title: "Referral or procedure", desc: "Plan a route for a specialty visit or procedure your doctor referred.", detail_label: "What did your doctor refer you for?" },
+  { key: "refill", title: "Medication refill", desc: "Find where to refill a prescription or reach a pharmacy.", detail_label: "What medication do you need refilled?" },
+  { key: "lab", title: "Lab or blood test", desc: "Locate a facility for a test or blood draw your clinician requested.", detail_label: "What test or blood draw was requested?" },
+  { key: "vaccination", title: "Vaccination", desc: "Find where to get a vaccine or routine immunization.", detail_label: "Which vaccine or immunization are you planning for?" },
+  { key: "follow_up", title: "Follow-up question", desc: "Reconnect with a facility or doctor about an appointment.", detail_label: "Which facility or doctor are you trying to reach?" },
+  { key: "symptom_first", title: "Not sure what I need", desc: "Talk it through and plan a safe next step. This is not a diagnosis.", detail_label: "What is worrying you today?" },
 ];
 
 const TILE_COPY: Record<Exclude<LangCode, "en">, Record<string, [string, string, string]>> = {
@@ -328,12 +327,6 @@ export const CARE_TASKS_EN: Record<string, string> = {
   vaccination: "Vaccination or immunization",
   symptom_first: "I am not sure what care I need",
   follow_up: "Follow-up or appointment question",
-};
-
-export const OPTION_ICONS: Record<string, string> = {
-  "Best documented fit": "🥇",
-  "Lower-burden route": "🧭",
-  "Alternative to verify": "🔍",
 };
 
 export const FEEDBACK_OPTIONS: Record<string, string> = {
