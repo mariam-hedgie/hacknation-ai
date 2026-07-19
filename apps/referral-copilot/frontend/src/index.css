@@ -209,6 +209,7 @@ button, input, textarea, select {
   z-index: 1100;
 }
 .popover-panel h4 { margin: 0 0 0.6rem 0; font-size: 0.85rem; }
+.popover-item { width: 100%; gap: 0.65rem; }
 
 .notice-banner {
   background: var(--card);
@@ -361,7 +362,7 @@ button, input, textarea, select {
 }
 .tile:hover { background: var(--ink); border-color: var(--ink); transform: translateY(-4px); box-shadow: 0 24px 40px -26px var(--shadow); }
 .tile:hover::before { background: var(--accent); border-color: var(--accent); color: #fff; }
-.tile-icon { font-size: 1.9rem; line-height: 1; margin-bottom: 0.7rem; }
+.tile-icon { line-height: 1; margin-bottom: 0.7rem; display: inline-flex; color: var(--accent); }
 .tile-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; text-transform: uppercase; transition: color 0.2s ease; }
 .tile-desc { font-size: 0.86rem; font-weight: 400; color: var(--muted); line-height: 1.45; margin-top: 0.35rem; transition: color 0.2s ease; }
 .tile-cta { margin-top: auto; padding-top: 0.9rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); transition: color 0.2s ease; }
@@ -379,6 +380,7 @@ button, input, textarea, select {
 
 /* ---------- Flow: stepper, form head, task switcher ---------- */
 .flow-page { padding-top: 1.6rem; padding-bottom: 4rem; }
+.flow-narrow { max-width: 960px; }
 .stepper { display: flex; gap: 0.5rem; margin: 1.6rem 0 1.8rem 0; max-width: 640px; }
 .step {
   flex: 1; text-align: center; padding: 0.6rem 0.4rem; border-radius: 999px;
@@ -395,6 +397,7 @@ button, input, textarea, select {
   font-size: 0.8rem; font-weight: 600;
   border: 1px solid var(--line-strong); background: var(--card);
   color: var(--muted); cursor: pointer; transition: all 0.15s ease;
+  display: inline-flex; align-items: center; gap: 0.45rem;
 }
 .task-chip:hover { border-color: var(--ink); color: var(--ink); }
 .task-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
@@ -469,8 +472,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .options-col { min-width: 0; }
 .side-col { position: sticky; top: 5rem; display: flex; flex-direction: column; gap: 1rem; }
 
-.datasource-note { background: var(--unknown-bg); color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.95rem; font-size: 0.82rem; margin: 0.4rem 0 1rem 0; }
-.blocked-note { background: var(--conflict-bg); color: var(--conflict-ink); border: 1px solid var(--conflict-ink); border-radius: 10px; padding: 0.7rem 0.95rem; font-size: 0.86rem; font-weight: 600; margin-bottom: 1rem; }
+.datasource-note { background: var(--unknown-bg); color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.95rem; font-size: 0.82rem; margin: 0.4rem 0 1rem 0; display: flex; align-items: flex-start; gap: 0.55rem; }
+.blocked-note { background: var(--conflict-bg); color: var(--conflict-ink); border: 1px solid var(--conflict-ink); border-radius: 10px; padding: 0.7rem 0.95rem; font-size: 0.86rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 0.55rem; }
+.datasource-note svg, .blocked-note svg { flex: 0 0 auto; margin-top: 0.05rem; }
 
 .card {
   background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--line-strong);
@@ -490,11 +494,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .badge.user_context { background: var(--user-bg); color: var(--user-ink); border: 1px dashed var(--user-ink); }
 
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
-.option-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); margin-bottom: 0.2rem; }
+.option-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); margin-bottom: 0.2rem; display: inline-flex; align-items: center; gap: 0.4rem; }
 .facility-name { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.35rem 0; letter-spacing: -0.01em; }
 .rating-badge { font-size: 0.8rem; font-weight: 700; color: var(--accent); vertical-align: middle; margin-left: 0.4rem; }
 .fact { color: var(--muted); font-size: 0.92rem; margin: 0.25rem 0; }
 .fact strong { color: var(--ink); font-weight: 600; }
+.icon-copy { display: flex; align-items: flex-start; gap: 0.5rem; }
+.icon-copy svg { flex: 0 0 auto; margin-top: 0.1rem; color: var(--accent); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
 .chip { display: inline-block; padding: 0.22rem 0.6rem; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); font-size: 0.74rem; font-weight: 600; }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppState, blockFacility, isBlocked } from "../state/AppState";
-import { STEP_KEYS, STRINGS, FEEDBACK_OPTIONS, OPTION_ICONS } from "../i18n/copy";
+import { STEP_KEYS, STRINGS, FEEDBACK_OPTIONS } from "../i18n/copy";
 import { api, type PlanOption, type ServiceStatus, type TravelCapability } from "../api";
 import { Stepper } from "../components/Stepper";
 import { OptionCard } from "../components/OptionCard";
+import { IconBan, IconDatabase, IconMapPin, OptionIcon } from "../components/Icons";
 
 const EVIDENCE_DEFAULTS: Record<string, string> = {
   "Best documented fit": "documented",
@@ -65,13 +66,15 @@ export function Results() {
           {status && status.backend_mode !== "live" && (
             status.tools.local_data ? (
               <div className="datasource-note">
-                📍 Real facility data from a local snapshot — not a live Databricks connection. Evidence below is
-                source-grounded, but confirm anything time-sensitive (availability, hours, price) by phone.
+                <IconMapPin size={17} />
+                <span>Real facility data from a local snapshot — not a live Databricks connection. Evidence below is
+                source-grounded, but confirm anything time-sensitive (availability, hours, price) by phone.</span>
               </div>
             ) : (
               <div className="datasource-note">
-                ⚙️ Seeded demo data — the Databricks evidence pipeline (Vector Search · Agent Bricks · Lakebase) is not
-                connected in this environment. Every option is labelled as a demo.
+                <IconDatabase size={17} />
+                <span>Seeded demo data — the Databricks evidence pipeline (Vector Search · Agent Bricks · Lakebase) is not
+                connected in this environment. Every option is labelled as a demo.</span>
               </div>
             )
           )}
@@ -104,8 +107,9 @@ export function Results() {
 
           {hiddenCount > 0 && (
             <div className="blocked-note">
-              🚫 {hiddenCount} option(s) hidden because you asked not to be referred there. Manage this in your
-              profile.
+              <IconBan size={17} />
+              <span>{hiddenCount} option(s) hidden because you asked not to be referred there. Manage this in your
+              profile.</span>
             </div>
           )}
 
@@ -192,8 +196,9 @@ export function Results() {
                 My plans
               </div>
               {savedPlans.map((plan, i) => (
-                <p className="fact" key={i}>
-                  {OPTION_ICONS[plan.label] ?? "📍"} <strong>{plan.facility}</strong> — {plan.label}
+                <p className="fact icon-copy" key={i}>
+                  <OptionIcon label={plan.label} size={16} />
+                  <span><strong>{plan.facility}</strong> — {plan.label}</span>
                 </p>
               ))}
             </div>

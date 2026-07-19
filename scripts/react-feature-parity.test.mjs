@@ -56,3 +56,41 @@ test("Databricks deploy builds React and serves it through the authenticated API
   assert.match(persistence, /PersistentSqlPlanStore/);
   assert.doesNotMatch(backend, /profile\?email/);
 });
+
+test("React uses consistent accessible line icons instead of emoji UI glyphs", () => {
+  const icons = read("apps/referral-copilot/frontend/src/components/Icons.tsx");
+  const app = read("apps/referral-copilot/frontend/src/App.tsx");
+  const evidence = read("apps/referral-copilot/frontend/src/components/Evidence.tsx");
+  const header = read("apps/referral-copilot/frontend/src/components/Header.tsx");
+  const option = read("apps/referral-copilot/frontend/src/components/OptionCard.tsx");
+  const landing = read("apps/referral-copilot/frontend/src/pages/Landing.tsx");
+  const intake = read("apps/referral-copilot/frontend/src/pages/Intake.tsx");
+  const results = read("apps/referral-copilot/frontend/src/pages/Results.tsx");
+  const copy = read("apps/referral-copilot/frontend/src/i18n/copy.ts");
+
+  for (const component of [
+    "TaskIcon",
+    "OptionIcon",
+    "EvidenceIcon",
+    "IconShield",
+    "IconBan",
+    "IconMapPin",
+    "IconDatabase",
+    "IconChevronDown",
+  ]) assert.match(icons, new RegExp(`export function ${component}`));
+  assert.match(icons, /aria-hidden="true"/);
+  assert.match(icons, /focusable="false"/);
+  assert.match(app, /<IconShield size=\{16\}/);
+  assert.match(evidence, /<EvidenceIcon status=\{status\}/);
+  assert.match(header, /<TaskIcon name=\{tile\.key\}/);
+  assert.match(option, /<OptionIcon label=\{option\.label\}/);
+  assert.match(option, /<IconBan size=\{16\}/);
+  assert.match(landing, /<IconChevronDown/);
+  assert.match(landing, /<TaskIcon name=\{tile\.key\}/);
+  assert.match(intake, /<TaskIcon name=\{careTask\}/);
+  assert.match(results, /<OptionIcon label=\{plan\.label\}/);
+  assert.doesNotMatch(copy, /OPTION_ICONS/);
+  assert.doesNotMatch(copy, /icon:\s*"/);
+  for (const source of [app, evidence, header, option, landing, intake, results])
+    assert.doesNotMatch(source, /[🛡️✅⚠️❔🔗🗒️🥇🧭🔍📍⚙️🚫]/u);
+});

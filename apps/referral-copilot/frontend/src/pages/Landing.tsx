@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAppState } from "../state/AppState";
 import { FEATURE_TILES_EN, STRINGS, tileCopy, tx } from "../i18n/copy";
-import { LogoPulse, EcgDivider } from "../components/Icons";
+import { EcgDivider, IconChevronDown, LogoPulse, TaskIcon } from "../components/Icons";
 import { Reveal } from "../components/Reveal";
 
 export function Landing() {
@@ -25,7 +25,7 @@ export function Landing() {
           <p className="hero-sub">{tx(language, "hero_sub")}</p>
           <a className="scroll-cue" href="#statement">
             <span>{tx(language, "scroll_cue")}</span>
-            <span className="chevron">⌄</span>
+            <span className="chevron"><IconChevronDown size={18} /></span>
           </a>
         </div>
       </div>
@@ -77,7 +77,7 @@ export function Landing() {
             const copy = tileCopy(language, tile.key);
             return (
               <button key={tile.key} className="tile" onClick={() => goIntake(tile.key)}>
-                <span className="tile-icon">{tile.icon}</span>
+                <span className="tile-icon"><TaskIcon name={tile.key} size={26} /></span>
                 <span className="tile-title">{copy.title}</span>
                 <span className="tile-desc">{copy.desc}</span>
                 <span className="tile-cta">{tx(language, "nav_cta")} →</span>
