@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppState, blockFacility, isBlocked } from "../state/AppState";
-import { STEP_KEYS, STRINGS, FEEDBACK_OPTIONS, OPTION_ICONS } from "../i18n/copy";
+import { STEP_KEYS, STRINGS, FEEDBACK_OPTIONS } from "../i18n/copy";
 import { api, type PlanOption, type ServiceStatus, type TravelCapability } from "../api";
 import { Stepper } from "../components/Stepper";
 import { OptionCard } from "../components/OptionCard";
+import { OptionIcon, IconMapPin, IconDatabase, IconBan } from "../components/Icons";
 
 const EVIDENCE_DEFAULTS: Record<string, string> = {
   "Best documented fit": "documented",

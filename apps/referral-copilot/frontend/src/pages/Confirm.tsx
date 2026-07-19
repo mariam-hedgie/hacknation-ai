@@ -51,7 +51,7 @@ export function Confirm() {
   };
 
   return (
-    <div className="page flow-page">
+    <div className="page flow-page flow-narrow">
       <Stepper current={STEP_KEYS.indexOf("confirm")} labels={strings.steps} />
 
       <div className="section-title" style={{ marginBottom: "0.8rem" }}>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppState } from "../state/AppState";
 import { FEATURE_TILES_EN, LANGUAGE_FALLBACK, tileCopy, type LangCode } from "../i18n/copy";
-import { LogoPulse } from "./Icons";
+import { LogoPulse, TaskIcon } from "./Icons";
 
 export function Header() {
   const navigate = useNavigate();
@@ -37,11 +37,12 @@ export function Header() {
                   return (
                     <button
                       key={tile.key}
-                      className="btn"
+                      className="btn popover-item"
                       style={{ justifyContent: "flex-start", textTransform: "none", letterSpacing: 0 }}
                       onClick={() => goIntake(tile.key)}
                     >
-                      {tile.icon} {copy.title}
+                      <TaskIcon name={tile.key} size={18} />
+                      {copy.title}
                     </button>
                   );
                 })}

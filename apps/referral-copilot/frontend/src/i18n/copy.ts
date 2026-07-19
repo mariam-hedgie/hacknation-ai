@@ -156,7 +156,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     about_body:
       "देखभाल तक पहुंच की अपनी ज़रूरत सरल शब्दों में बताएं। aven उसे एक स्पष्ट, संरचित अनुरोध में बदलता है, फिर एक व्यावहारिक मार्ग बनाता है — हर विकल्प के पीछे का प्रमाण दिखाते हुए और जो पुष्टि नहीं हो सकी उसके बारे में ईमानदार रहते हुए।",
     about_points: [
-      ["अपने शब्दों में कहें", "अंग्रेज़ी, हिंदी या मराठी में सहज रूप से लिखें। कोई जटिल फ़ॉर्म नहीं।"],
+      ["���पने शब्दों में कहें", "अंग्रेज़ी, हिंदी या मराठी में सहज रूप से लिखें। कोई जटिल फ़ॉर्म नहीं।"],
       ["प्रमाण देखें", "हर विकल्प दिखाता है कि क्या प्रलेखित है, क्या विरोधाभासी है, और क्या अज्ञात है।"],
       ["अगला कदम तय करें", "यात्रा और लागत के आधार पर मार्गों की तुलना करें, फिर योजना सहेजें।"],
     ],
@@ -217,7 +217,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
       "काळजी मिळवण्याची तुमची गरज सोप्या शब्दांत सांगा. aven ती स्पष्ट, संरचित विनंतीमध्ये बदलते, नंतर कृतीयोग्य मार्ग ठरवते — प्रत्येक पर्यायामागील पुरावा दाखवत आणि ज्याची पुष्टी होऊ शकली नाही त्याबद्दल प्रामाणिक राहत.",
     about_points: [
       ["तुमच्या शब्दांत सांगा", "इंग्रजी, हिंदी किंवा मराठीत सहजपणे लिहा. गुंतागुंतीचे फॉर्म नाहीत."],
-      ["पुरावा पहा", "प्रत्येक पर्याय दाखवतो काय नोंदवलेले आहे, काय विसंगत आहे आणि काय अज्ञात आहे."],
+      ["पुरावा पहा", "प्रत्येक पर्याय दाखवतो काय नोंदवलेले आहे, काय विसंगत आहे आणि काय अज्ञ���त आहे."],
       ["पुढील पाऊल ठरवा", "प्रवास आणि खर्चानुसार मार्गांची तुलना करा, नंतर योजना जतन करा."],
     ],
     tiles_eyebrow: "सुरुवात निवडा",
@@ -269,19 +269,18 @@ export function scaleLabel(lang: LangCode, value: string): string {
 
 export interface FeatureTile {
   key: string;
-  icon: string;
   title: string;
   desc: string;
   detail_label: string;
 }
 
 export const FEATURE_TILES_EN: FeatureTile[] = [
-  { key: "known_referral", icon: "🩺", title: "Referral or procedure", desc: "Plan a route for a specialty visit or procedure your doctor referred.", detail_label: "What did your doctor refer you for?" },
-  { key: "refill", icon: "💊", title: "Medication refill", desc: "Find where to refill a prescription or reach a pharmacy.", detail_label: "What medication do you need refilled?" },
-  { key: "lab", icon: "🧪", title: "Lab or blood test", desc: "Locate a facility for a test or blood draw your clinician requested.", detail_label: "What test or blood draw was requested?" },
-  { key: "vaccination", icon: "💉", title: "Vaccination", desc: "Find where to get a vaccine or routine immunization.", detail_label: "Which vaccine or immunization are you planning for?" },
-  { key: "follow_up", icon: "📅", title: "Follow-up question", desc: "Reconnect with a facility or doctor about an appointment.", detail_label: "Which facility or doctor are you trying to reach?" },
-  { key: "symptom_first", icon: "🧭", title: "Not sure what I need", desc: "Talk it through and plan a safe next step. This is not a diagnosis.", detail_label: "What is worrying you today?" },
+  { key: "known_referral", title: "Referral or procedure", desc: "Plan a route for a specialty visit or procedure your doctor referred.", detail_label: "What did your doctor refer you for?" },
+  { key: "refill", title: "Medication refill", desc: "Find where to refill a prescription or reach a pharmacy.", detail_label: "What medication do you need refilled?" },
+  { key: "lab", title: "Lab or blood test", desc: "Locate a facility for a test or blood draw your clinician requested.", detail_label: "What test or blood draw was requested?" },
+  { key: "vaccination", title: "Vaccination", desc: "Find where to get a vaccine or routine immunization.", detail_label: "Which vaccine or immunization are you planning for?" },
+  { key: "follow_up", title: "Follow-up question", desc: "Reconnect with a facility or doctor about an appointment.", detail_label: "Which facility or doctor are you trying to reach?" },
+  { key: "symptom_first", title: "Not sure what I need", desc: "Talk it through and plan a safe next step. This is not a diagnosis.", detail_label: "What is worrying you today?" },
 ];
 
 const TILE_COPY: Record<Exclude<LangCode, "en">, Record<string, [string, string, string]>> = {
@@ -294,7 +293,7 @@ const TILE_COPY: Record<Exclude<LangCode, "en">, Record<string, [string, string,
     symptom_first: ["मुझे नहीं पता क्या चाहिए", "बात करें और सुरक्षित अगला कदम तय करें। यह निदान नहीं है।", "आज आपको क्या चिंता है?"],
   },
   mr: {
-    known_referral: ["संदर्भ किंवा प्रक्रिया", "डॉक्टरांनी सुचवलेल्या तज्ज्ञ भेटीसाठी किंवा प्रक्रियेसाठी मार्ग ठरवा.", "तुमच्या डॉक्टरांनी कशासाठी संदर्भ दिला?"],
+    known_referral: ["संदर्भ किंवा प्रक्रिया", "डॉक्टरांनी ��ुचवलेल्या तज्ज्ञ भेटीसाठी किंवा प्रक्रियेसाठी मार्ग ठरवा.", "तुमच्या डॉक्टरांनी कशासाठी संदर्भ दिला?"],
     refill: ["औषध पुन्हा घेणे", "प्रिस्क्रिप्शन पुन्हा भरण्यासाठी किंवा औषधालयापर्यंत पोहोचण्यासाठी जागा शोधा.", "तुम्हाला कोणते औषध पुन्हा हवे आहे?"],
     lab: ["प्रयोगशाळा किंवा रक्त तपासणी", "डॉक्टरांनी सांगितलेल्या तपासणीसाठी किंवा रक्त नमुन्यासाठी सुविधा शोधा.", "कोणती तपासणी किंवा रक्त नमुना सांगितला होता?"],
     vaccination: ["लसीकरण", "लस किंवा नियमित लसीकरण कुठे मिळेल ते शोधा.", "तुम्ही कोणत्या लसीचे नियोजन करत आहात?"],
@@ -328,12 +327,6 @@ export const CARE_TASKS_EN: Record<string, string> = {
   vaccination: "Vaccination or immunization",
   symptom_first: "I am not sure what care I need",
   follow_up: "Follow-up or appointment question",
-};
-
-export const OPTION_ICONS: Record<string, string> = {
-  "Best documented fit": "🥇",
-  "Lower-burden route": "🧭",
-  "Alternative to verify": "🔍",
 };
 
 export const FEEDBACK_OPTIONS: Record<string, string> = {
