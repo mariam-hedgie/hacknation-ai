@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from .demo_adapter import build_demo_options
 from .domain import IntakeRequest, SafetyBranch, validate_confirmed_intake
 
+# A planner turns a confirmed, gate-cleared payload into display-shaped options.
+# Injecting it keeps this module framework- and backend-independent: the demo
+# adapter is the default, and `ui_contract` supplies the live Databricks-backed
+# `backend.service.plan_routes` without the gates moving or being duplicated.
+Planner = Callable[[dict[str, Any]], list[dict[str, Any]]]
+
 
 @dataclass(frozen=True)
-class DemoOutcome:
+class PlanOutcome:
     """Safe result passed to the UI after confirmation."""
 
     safety_branch: SafetyBranch
-    options: tuple[dict[str, str], ...] = ()
+    options: tuple[dict[str, Any], ...] = ()
     message: str | None = None
     validation_errors: tuple[str, ...] = ()
 
@@ -52,25 +59,32 @@ def build_confirmed_request(payload: dict[str, Any]) -> IntakeRequest:
     )
 
 
-def evaluate_demo_request(payload: dict[str, Any]) -> DemoOutcome:
-    """Apply blocking safety/validation gates before returning demo content."""
+def evaluate_confirmed_request(
+    payload: dict[str, Any], *, planner: Planner = build_demo_options
+) -> PlanOutcome:
+    """Apply blocking safety/validation gates before any planner runs.
+
+    Every gate below is blocking: the planner is only reached on PROCEED, so no
+    route options can be produced for an emergency, an unconfirmed care setting,
+    or an incomplete intake.
+    """
 
     request = build_confirmed_request(payload)
     if request.emergency_warning_reported or request.urgency == "emergency":
-        return DemoOutcome(
+        return PlanOutcome(
             safety_branch=SafetyBranch.EMERGENCY,
             message="Emergency warning reported. Seek urgent local help now; Aven will not rank ordinary options.",
         )
 
     if request.care_task == "symptom_first" and not request.confirmed_capability:
-        return DemoOutcome(
+        return PlanOutcome(
             safety_branch=SafetyBranch.CONFIRM_CARE_SETTING,
             message="Confirm a possible first care setting before Aven searches for facilities.",
         )
 
     errors = validate_confirmed_intake(request)
     if errors:
-        return DemoOutcome(
+        return PlanOutcome(
             safety_branch=SafetyBranch.INCOMPLETE_INTAKE,
             message="Complete the missing information before Aven creates a plan.",
             validation_errors=errors,
@@ -78,7 +92,7 @@ def evaluate_demo_request(payload: dict[str, Any]) -> DemoOutcome:
 
     display_payload = dict(payload)
     display_payload["capability"] = request.confirmed_capability or request.medication_name or "the confirmed care need"
-    return DemoOutcome(
+    return PlanOutcome(
         safety_branch=SafetyBranch.PROCEED,
-        options=tuple(build_demo_options(display_payload)),
+        options=tuple(planner(display_payload)),
     )

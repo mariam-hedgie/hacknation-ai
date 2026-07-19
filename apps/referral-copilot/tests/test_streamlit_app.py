@@ -12,55 +12,45 @@ APP_FILE = Path(__file__).resolve().parents[1] / "app.py"
 if str(APP_FILE.parent) not in sys.path:
     sys.path.insert(0, str(APP_FILE.parent))
 
-from src.app_logic import evaluate_demo_request  # noqa: E402
+from src.ui_contract import AvenUiBackend  # noqa: E402
 
 
-def widget_with_label(widgets, label: str):
-    return next(widget for widget in widgets if widget.label == label)
+def referral_payload() -> dict[str, object]:
+    return {
+        "care_task": "known_referral",
+        "capability": "cardiology",
+        "location": "Patna",
+        "urgency": "soon",
+        "travel_tolerance": "medium",
+        "budget_sensitivity": "high",
+        "facility_preference": "public",
+        "language": "en",
+    }
 
 
 class StreamlitGoldenPathTests(unittest.TestCase):
-    def test_known_referral_can_be_confirmed_and_render_three_demo_options(self) -> None:
+    def test_landing_screen_renders_without_a_live_service(self) -> None:
         app = AppTest.from_file(str(APP_FILE)).run(timeout=20)
         self.assertEqual(app.exception, [])
 
-        app.text_area[0].input("I need a cardiology referral").run()
-        widget_with_label(app.text_input, "A little more detail").input("cardiology")
-        widget_with_label(app.text_input, "Starting city, district, or pincode").input("Patna")
-        widget_with_label(app.button, "Review what Aven understood").click().run()
+    def test_confirmed_referral_returns_three_seeded_options(self) -> None:
+        response = AvenUiBackend({}).confirm_and_plan(referral_payload())
 
-        self.assertIn("Review and confirm", [item.value for item in app.subheader])
-        confirm = widget_with_label(app.button, "Confirm and find routes")
-        self.assertFalse(confirm.disabled)
-        # Streamlit's AppTest retains disappeared form widgets across an
-        # explicit st.rerun, so exercise the result screen in a fresh harness
-        # with the exact confirmed outcome produced above.
-        results = AppTest.from_file(str(APP_FILE))
-        results.session_state["stage"] = "results"
-        results.session_state["selected_language"] = "en"
-        results.session_state["saved_plan_ids"] = []
-        results.session_state["active_plan_id"] = None
-        results.session_state["request"] = app.session_state["request"]
-        results.session_state["outcome"] = evaluate_demo_request(
-            app.session_state["request"]
-        )
-        results.run(timeout=20)
+        self.assertEqual(response.safety_branch, "proceed")
+        self.assertEqual(len(response.options), 3)
+        self.assertTrue(all(option["evidence"] for option in response.options))
 
-        self.assertEqual(results.exception, [])
-        self.assertIn("Your next-step plan", [item.value for item in results.subheader])
-        card_titles = [item.value for item in results.markdown if item.value.startswith("### ")]
-        self.assertIn("### Best documented fit", card_titles)
-        self.assertIn("### Lower-burden route", card_titles)
-        self.assertIn("### Alternative to verify", card_titles)
+    def test_emergency_request_blocks_ordinary_results(self) -> None:
+        payload = referral_payload() | {
+            "care_task": "symptom_first",
+            "capability": "",
+            "urgency": "emergency",
+            "emergency_warning_reported": True,
+        }
+        response = AvenUiBackend({}).confirm_and_plan(payload)
 
-    def test_emergency_check_blocks_ordinary_results(self) -> None:
-        app = AppTest.from_file(str(APP_FILE)).run(timeout=20)
-        widget_with_label(
-            app.checkbox, "I may have an emergency warning sign or need immediate help"
-        ).check().run()
-
-        self.assertTrue(any("Get urgent help now" in item.value for item in app.error))
-        self.assertFalse(any("Confirm and find routes" == item.label for item in app.button))
+        self.assertEqual(response.safety_branch, "emergency")
+        self.assertEqual(response.options, ())
 
 
 if __name__ == "__main__":

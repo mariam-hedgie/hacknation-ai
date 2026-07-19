@@ -9,11 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from .enrichment import normalize
+
 
 CARE_TASKS = {
     "known_referral": "Referral, specialty, or procedure",
     "refill": "Medication refill or pharmacy",
     "lab": "Lab test or blood draw",
+    "vaccination": "Vaccination or immunization",
     "symptom_first": "I am not sure what care I need",
     "follow_up": "Follow-up or appointment question",
 }
@@ -23,6 +26,7 @@ TASK_QUESTIONS = {
     "known_referral": "What specialty, procedure, or care need did your doctor write down?",
     "refill": "What medicine and formulation do you need refilled?",
     "lab": "What test or blood draw did your clinician request?",
+    "vaccination": "Which vaccine or immunization are you planning for?",
     "symptom_first": "What is worrying you today? We can help plan a possible next care step, not diagnose it.",
     "follow_up": "Which facility or doctor are you trying to reach?",
 }
@@ -45,7 +49,74 @@ def next_question(care_task: str) -> str:
     return TASK_QUESTIONS.get(care_task, TASK_QUESTIONS["symptom_first"])
 
 
-def build_demo_options(request: dict[str, Any]) -> list[dict[str, str]]:
+# Seeded payloads in the extractor's OUTPUT SCHEMA (see src/enrichment.py). The
+# three deliberately cover the states the card must handle: a rich record, a
+# sparse one (data desert), and one that is both conflicting and possibly two
+# facilities merged into one row. All text is invented for the demo.
+_DEMO_ENRICHMENT: list[dict[str, Any]] = [
+    {
+        "capabilities": [
+            {"claim": "Outpatient cardiology consultation",
+             "evidence": ["Demo record: “daily outpatient cardiology OPD, 9am–1pm”"]},
+            {"claim": "24-hour emergency intake",
+             "evidence": ["Demo record: “casualty department open 24 hours”"]},
+        ],
+        "procedures": [
+            {"claim": "ECG", "evidence": ["Demo record: “ECG performed on site”"]},
+            {"claim": "Treadmill stress test", "evidence": []},
+        ],
+        "equipment": [
+            {"claim": "Colour doppler echocardiography unit",
+             "evidence": ["Demo record: “2D echo with colour doppler installed 2019”"]},
+        ],
+        "specialties": ["Cardiology", "General medicine"],
+        "facility_facts": [
+            {"fact": "Wheelchair-accessible entrance",
+             "evidence": ["Demo record: “ramp access at main entrance”"]},
+        ],
+        "data_quality": {
+            "has_rich_description": True,
+            "conflicting_claims": [],
+            "possible_merged_facility": False,
+            "merge_suspicion_reason": None,
+        },
+    },
+    {
+        "capabilities": [{"claim": "General outpatient consultation", "evidence": []}],
+        "procedures": [],
+        "equipment": [],
+        "specialties": ["General medicine"],
+        "facility_facts": [],
+        "data_quality": {
+            "has_rich_description": False,
+            "conflicting_claims": [],
+            "possible_merged_facility": False,
+            "merge_suspicion_reason": None,
+        },
+    },
+    {
+        "capabilities": [
+            {"claim": "Specialty outpatient clinic",
+             "evidence": ["Demo record: “specialist clinics run on weekdays”"]},
+        ],
+        "procedures": [{"claim": "Diagnostic imaging", "evidence": ["Demo record: “X-ray and ultrasound”"]}],
+        "equipment": [],
+        "specialties": ["Cardiology", "Radiology"],
+        "facility_facts": [],
+        "data_quality": {
+            "has_rich_description": True,
+            "conflicting_claims": [
+                "One record lists a 24-hour pharmacy; another lists pharmacy hours as 9am–6pm.",
+                "Bed count appears as both 40 and 120 across records.",
+            ],
+            "possible_merged_facility": True,
+            "merge_suspicion_reason": "Two distinct addresses and phone numbers appear under one facility name.",
+        },
+    },
+]
+
+
+def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
     """Produce stable, clearly seeded options for UI development and rehearsal.
 
     Future data adapters must return this same display contract but replace all
@@ -55,7 +126,7 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, str]]:
     preference = str(request.get("facility_preference") or "either")
     public_note = "A public-facility preference was included in this demo ranking." if preference == "public" else "Your selected preferences were included in this demo ranking."
 
-    return [
+    options: list[dict[str, Any]] = [
         {
             "label": "Best documented fit",
             "facility": "Demo District Care Centre",
@@ -90,3 +161,6 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, str]]:
             "ranking": "Included to make uncertainty visible and preserve a user choice beyond the first recommendation.",
         },
     ]
+    for option, payload in zip(options, _DEMO_ENRICHMENT):
+        option["enrichment"] = normalize(payload)
+    return options

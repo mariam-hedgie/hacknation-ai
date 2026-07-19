@@ -10,7 +10,7 @@ from pathlib import Path
 APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
-from src.app_logic import build_confirmed_request, evaluate_demo_request  # noqa: E402
+from src.app_logic import build_confirmed_request, evaluate_confirmed_request  # noqa: E402
 from src.domain import SafetyBranch  # noqa: E402
 
 
@@ -34,7 +34,7 @@ class ConfirmedJourneyTests(unittest.TestCase):
         self.assertEqual(request.language_preference, "hi")
 
     def test_emergency_report_stops_demo_option_generation(self) -> None:
-        outcome = evaluate_demo_request(
+        outcome = evaluate_confirmed_request(
             {
                 "care_task": "symptom_first",
                 "capability": "",
@@ -48,7 +48,7 @@ class ConfirmedJourneyTests(unittest.TestCase):
         self.assertEqual(outcome.options, ())
 
     def test_incomplete_request_returns_errors_instead_of_seeded_results(self) -> None:
-        outcome = evaluate_demo_request(
+        outcome = evaluate_confirmed_request(
             {
                 "care_task": "known_referral",
                 "capability": "cardiology",
@@ -61,7 +61,7 @@ class ConfirmedJourneyTests(unittest.TestCase):
         self.assertEqual(outcome.options, ())
 
     def test_refill_requires_confirmed_prescription_before_results(self) -> None:
-        outcome = evaluate_demo_request(
+        outcome = evaluate_confirmed_request(
             {
                 "care_task": "refill",
                 "medication_name": "metformin",
@@ -74,7 +74,7 @@ class ConfirmedJourneyTests(unittest.TestCase):
         self.assertEqual(outcome.options, ())
 
     def test_valid_request_returns_three_explicitly_seeded_options(self) -> None:
-        outcome = evaluate_demo_request(
+        outcome = evaluate_confirmed_request(
             {
                 "care_task": "known_referral",
                 "capability": "cardiology",

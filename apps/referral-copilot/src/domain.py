@@ -32,7 +32,7 @@ class SafetyBranch(str, Enum):
 
 
 _CARE_TASKS = frozenset(
-    {"known_referral", "procedure", "lab", "refill", "symptom_first", "follow_up"}
+    {"known_referral", "procedure", "lab", "refill", "vaccination", "symptom_first", "follow_up"}
 )
 _URGENCY = frozenset({"routine", "soon", "urgent", "emergency"})
 _PREFERENCES = frozenset({"public", "private", "either", "unknown"})
@@ -70,6 +70,10 @@ class FacilityCandidate:
     facility_type: str | None = None
     missing_fields: tuple[str, ...] = ()
     source_spans: tuple[str, ...] = ()
+    # Normalized extractor output (see enrichment.normalize). Carried for display
+    # only: ranking reads evidence_status, never this blob, so a richer record can
+    # never out-rank a documented one just for having more extracted text.
+    enrichment: dict | None = None
 
 
 @dataclass(frozen=True)

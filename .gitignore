@@ -9,3 +9,7 @@ __pycache__/
 htmlcov/
 .streamlit/secrets.toml
 .DS_Store
+
+# Local demo user profiles (history, ratings, blocklist) — never commit
+.aven_profiles.json
+apps/referral-copilot/.aven_profiles.json

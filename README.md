@@ -26,12 +26,11 @@ Bengaluru, and Mumbai are the planned urban comparison cases.
 
 ## Run locally
 
-One-time setup:
+One-time setup, from the repository root:
 
 ```bash
-cd /Users/mariamhusain/Desktop/sidequests/hacknation-ai
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
 python3 -m pip install -r apps/referral-copilot/requirements.txt
 cp .env.example .env
 ```
@@ -39,18 +38,27 @@ cp .env.example .env
 Leave unavailable credentials as `TODO_...`; Aven will use safe local fallback
 behavior. Never commit `.env` or a Databricks personal access token.
 
-Start the app:
+### Start the frontend
 
 ```bash
-source .venv/bin/activate
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
 cd apps/referral-copilot
 streamlit run app.py
 ```
 
-Run validation:
+Streamlit prints a local URL, normally **<http://localhost:8501>** — open it in
+your browser to view the app. The terminal running `streamlit run` stays
+attached to the server; press `Ctrl+C` there to stop it. If it prompts for an
+onboarding email on first run, press Enter to skip it, or start it with
+`streamlit run app.py --server.headless true` to suppress the prompt.
+
+Use `streamlit run app.py --server.port 8502` to run on a different port if
+8501 is already in use.
+
+### Run validation
 
 ```bash
-cd /Users/mariamhusain/Desktop/sidequests/hacknation-ai
+cd /path/to/hacknation-ai
 python3 -m unittest discover -s apps/referral-copilot/tests -v
 python3 -m compileall -q apps/referral-copilot
 npm run check:elevenlabs
