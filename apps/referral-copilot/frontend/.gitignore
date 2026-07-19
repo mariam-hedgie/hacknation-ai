@@ -8,7 +8,17 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+
+# dist/ is deliberately COMMITTED, not ignored.
+#
+# Building this app needs two toolchains: Node for the React bundle and Python
+# to serve it. Committing the bundle means a plain Python host (no Node, no
+# Docker) can run the whole app, and it means a Databricks deploy cannot break
+# just because the npm build step did not run.
+#
+# Consequence: after changing anything under frontend/src, run
+# `npm --prefix apps/referral-copilot run build` and commit the result, or the
+# deployed UI will be stale. `npm test` at the repo root enforces this.
 dist-ssr
 *.local
 

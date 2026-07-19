@@ -1,8 +1,24 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const exists = (path) => existsSync(new URL(`../${path}`, import.meta.url));
+
+test("the built React bundle is committed so a Python-only host can serve it", () => {
+  // dist/ is deliberately committed (see frontend/.gitignore): it lets a plain
+  // Python host run the app with no Node toolchain, and stops a Databricks
+  // deploy breaking if the npm build step never runs. If this fails, run
+  // `npm --prefix apps/referral-copilot run build` and commit the result.
+  const dist = "apps/referral-copilot/frontend/dist";
+  assert.ok(exists(dist), `${dist} is missing — build and commit it`);
+
+  const html = read(`${dist}/index.html`);
+  const referenced = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+)"/g)].map((m) => m[1]);
+  assert.ok(referenced.length > 0, "index.html references no built assets");
+  for (const asset of referenced)
+    assert.ok(exists(`${dist}/${asset}`), `index.html references missing ${asset}`);
+});
 
 test("React request preserves the complete journey intake contract", () => {
   const api = read("apps/referral-copilot/frontend/src/api.ts");

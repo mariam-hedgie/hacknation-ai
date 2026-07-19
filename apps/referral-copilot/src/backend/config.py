@@ -22,7 +22,14 @@ try:  # pragma: no cover - optional local-dev convenience
     # (deliberately: Databricks Apps must not depend on one) — this is the one
     # place that does, since every entry point (app.py, api.py, the standalone
     # scripts) imports this module before touching any env-derived config.
-    load_dotenv(Path(__file__).resolve().parents[4] / ".env")
+    #
+    # Search upward rather than indexing a fixed ancestor: a deployed copy of
+    # src/ need not sit at the repository's directory depth (a container image
+    # roots it at /app), and a missing .env must never crash startup.
+    for _candidate in Path(__file__).resolve().parents:
+        if (_candidate / ".env").is_file():
+            load_dotenv(_candidate / ".env")
+            break
 except ImportError:
     pass
 

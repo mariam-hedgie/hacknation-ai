@@ -15,12 +15,12 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
 from src.backend.api import app  # noqa: E402
-from src.backend.lakebase import _LOCAL_STATE  # noqa: E402
+from src.backend.lakebase import _LOCAL_SESSIONS  # noqa: E402
 
 
 class ApiPersistenceTests(unittest.TestCase):
     def setUp(self) -> None:
-        _LOCAL_STATE.clear()
+        _LOCAL_SESSIONS.clear()
         self.environment = patch.dict(
             os.environ,
             {"AVEN_AUTH_MODE": "local_demo", "AVEN_ALLOW_LOCAL_DEMO": "true"},
@@ -32,7 +32,7 @@ class ApiPersistenceTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.client.close()
         self.environment.stop()
-        _LOCAL_STATE.clear()
+        _LOCAL_SESSIONS.clear()
 
     def test_save_reload_feedback_and_delete_without_health_intake(self) -> None:
         page = self.client.get("/")
@@ -96,6 +96,41 @@ class ApiPersistenceTests(unittest.TestCase):
         self.assertTrue(result["maps_url"].startswith("https://www.google.com/maps/search/?api=1&"))
         self.assertNotIn("/maps/dir/", result["maps_url"])
         self.assertEqual(self.client.get("/api/plans").json()["plans"], [])
+
+    def test_two_demo_visitors_do_not_share_saved_plans(self) -> None:
+        """A public demo host must not leak one visitor's plans to another.
+
+        Each client keeps its own cookie jar, so this exercises two separate
+        browser sessions against the same process.
+        """
+
+        plan = {
+            "plan_id": "shared-test-plan",
+            "selected_facility_id": "facility-1",
+            "selected_option": {"facility_id": "facility-1", "display_name": "Demo hospital"},
+            "next_steps": [],
+        }
+
+        with TestClient(app) as visitor_a, TestClient(app) as visitor_b:
+            self.assertEqual(visitor_a.post("/api/plans", json=plan).status_code, 200)
+            self.assertEqual(
+                [row["plan_id"] for row in visitor_a.get("/api/plans").json()["plans"]],
+                ["shared-test-plan"],
+            )
+
+            # B has saved nothing and must not observe A's plan.
+            self.assertEqual(visitor_b.get("/api/plans").json()["plans"], [])
+
+            # The same plan ID for B stays a distinct record.
+            self.assertEqual(visitor_b.post("/api/plans", json=plan).status_code, 200)
+            self.assertEqual(len(visitor_a.get("/api/plans").json()["plans"]), 1)
+
+            # Deleting B's copy must leave A's intact.
+            self.assertTrue(visitor_b.delete("/api/plans/shared-test-plan").json()["deleted"])
+            self.assertEqual(
+                [row["plan_id"] for row in visitor_a.get("/api/plans").json()["plans"]],
+                ["shared-test-plan"],
+            )
 
 
 if __name__ == "__main__":

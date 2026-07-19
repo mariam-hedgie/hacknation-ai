@@ -22,10 +22,24 @@ import os
 from pathlib import Path
 from typing import Any
 
-# apps/referral-copilot/src/backend/local_search.py -> repo root is 4 parents up.
-_DATA_DIR = Path(__file__).resolve().parents[4] / "data"
-_DEFAULT_DATA_PATH = _DATA_DIR / "facilities_searchable.json"
-_JSONL_DATA_PATH = _DATA_DIR / "facilities_searchable.jsonl"
+def _default_data_path() -> Path:
+    """Locate the optional local facility extract.
+
+    Searches upward for either supported export format. A deployed copy of src/
+    need not sit at the repository's directory depth, so this also works in a
+    container image rooted at /app.
+    """
+
+    here = Path(__file__).resolve()
+    for candidate in here.parents:
+        for filename in ("facilities_searchable.json", "facilities_searchable.jsonl"):
+            extract = candidate / "data" / filename
+            if extract.is_file():
+                return extract
+    return here.parents[min(4, len(here.parents) - 1)] / "data" / "facilities_searchable.json"
+
+
+_DEFAULT_DATA_PATH = _default_data_path()
 
 _MATCH_GROUPS = ("capabilities", "procedures", "equipment")
 _LOCATION_ALIASES = {
