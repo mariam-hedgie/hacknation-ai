@@ -4,6 +4,15 @@ The module deliberately performs no network connection by itself.  Databricks
 Apps can inject an authenticated SQL executor that uses the app identity; local
 development remains explicitly disconnected.  Personal access tokens are not
 part of this adapter's configuration contract.
+
+PARKED (see TODO.md "Decision — Model B adopted"): `DatabricksConfig`,
+`DatabricksFacilityRepository`, and the `_FACILITY_QUERY` / `_NEARBY_FACILITY_QUERY`
+SQL below query Model A tables (`facilities_normalized`, `facility_claims_evidence`,
+`facility_trust_assessment`) that were never built and are not on the live
+request path — `src/backend/service.py` reaches facility data through
+`vector_search.py` + `agent_bricks.py` against Model B's `facilities_searchable`
+instead. This module stays for `SessionLocalPlanStore` / `FallbackPlanStore`,
+which `src/ui_contract.py` still uses for plan/feedback persistence.
 """
 
 from __future__ import annotations

@@ -15,7 +15,14 @@ from typing import Any
 
 from .. import enrichment
 from ..demo_adapter import build_demo_options
-from ..domain import IntakeRequest, RankedOption, ShortlistResult, SafetyBranch, build_shortlist
+from ..domain import (
+    FacilityCandidate,
+    IntakeRequest,
+    RankedOption,
+    ShortlistResult,
+    SafetyBranch,
+    build_shortlist,
+)
 from . import tracing
 from .agent_bricks import AgentBricksClient
 from .config import BackendConfig
@@ -57,11 +64,15 @@ def plan_routes(request: dict[str, Any]) -> list[dict[str, Any]]:
     Tries the live evidence pipeline; falls back to seeded demo options until
     Vector Search + Agent Bricks are wired.
     """
-    with tracing.span("referral.plan_routes", care_task=str(request.get("care_task"))):
+    with tracing.span(
+        "referral.plan_routes",
+        inputs={"care_task": request.get("care_task"), "capability": request.get("capability")},
+        care_task=str(request.get("care_task")),
+    ) as plan_span:
         live = _live_plan_routes(request)
-        if live is not None:
-            return live
-        return build_demo_options(request)
+        options = live if live is not None else build_demo_options(request)
+        plan_span.set_outputs({"backend_mode": backend_mode(), "option_count": len(options)})
+        return options
 
 
 def _live_plan_routes(request: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -70,26 +81,51 @@ def _live_plan_routes(request: dict[str, Any]) -> list[dict[str, Any]] | None:
     capability = str(request.get("capability") or "")
     location = request.get("location")
 
-    with tracing.span("vector_search.retrieve"):
+    with tracing.span(
+        "vector_search.retrieve", inputs={"capability": capability, "location": location}
+    ) as retrieve_span:
         rows = _vector_search.retrieve(capability, location)
+        retrieve_span.set_outputs({"row_count": len(rows) if rows is not None else 0, "available": rows is not None})
     if rows is None:
         return None
 
-    with tracing.span("agent_bricks.assess_claims"):
+    with tracing.span(
+        "agent_bricks.assess_claims", inputs={"capability": capability, "row_count": len(rows)}
+    ) as assess_span:
         candidates = _agent.assess_claims(rows, capability=capability)
+        assess_span.set_outputs(
+            {
+                "candidate_count": len(candidates) if candidates is not None else 0,
+                "evidence_status_counts": _status_counts(candidates) if candidates else {},
+            }
+        )
     if candidates is None:
         return None
 
     try:
         intake = _intake_from_request(request)
-        with tracing.span("domain.build_shortlist"):
+        with tracing.span(
+            "domain.build_shortlist",
+            inputs={"care_task": intake.care_task, "candidate_count": len(candidates)},
+        ) as shortlist_span:
             result: ShortlistResult = build_shortlist(intake, candidates)
+            shortlist_span.set_outputs(
+                {"safety_branch": result.safety_branch.value, "option_count": len(result.options)}
+            )
         if result.safety_branch is not SafetyBranch.PROCEED or not result.options:
             return None
         return [_ranked_to_display(opt, i) for i, opt in enumerate(result.options)]
     except Exception:
         # Any mapping/ranking issue must not break the live demo: use demo data.
         return None
+
+
+def _status_counts(candidates: list[FacilityCandidate]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for candidate in candidates:
+        key = candidate.evidence_status.value
+        counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 _LABELS = ("Best documented fit", "Lower-burden route", "Alternative to verify")
@@ -149,8 +185,10 @@ def ask_data_question(question: str, *, conversation_id: str | None = None) -> d
     callers must show an honest "not answered" state, never a fabricated one.
     The returned `sql` should be shown alongside the answer as its evidence.
     """
-    with tracing.span("genie.ask"):
-        return _genie.ask(question, conversation_id=conversation_id)
+    with tracing.span("genie.ask", inputs={"question": question}) as ask_span:
+        result = _genie.ask(question, conversation_id=conversation_id)
+        ask_span.set_outputs({"answered": result is not None})
+        return result
 
 
 # ---------- Persistence (Lakebase seam) ----------

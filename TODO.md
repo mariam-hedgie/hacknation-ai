@@ -13,7 +13,33 @@ call a Databricks tool from `app.py` directly.
 
 ---
 
-## ⚠️ Blocker #1 — two competing data models
+## ✅ Decision — Model B adopted (2026-07-19)
+
+Model B (flattened JSON, `workspace.default.facilities_searchable`) is the
+schema of record. Model A (`facilities_normalized` / `facility_claims_evidence`
+/ `facility_trust_assessment` / `facility_source_chunks`) is superseded: those
+tables were never built, and `src/enrichment.py`'s extractor schema already
+matches Model B exactly.
+
+Consequences applied:
+
+- `databricks/01`–`05` are marked superseded in-file (see each file's header).
+  They document a pipeline against tables that don't exist; kept for reference
+  only, not as instructions to run.
+- `src/databricks_adapter.py`'s `_FACILITY_QUERY` / `_NEARBY_FACILITY_QUERY` /
+  `DatabricksFacilityRepository` are Model A and are **not** on the live path
+  (`service.py` never imports them — only `SessionLocalPlanStore` /
+  `FallbackPlanStore` from this module are used, via `ui_contract.py`). Parked
+  rather than deleted: 8 existing tests cover the SQL-building/row-translation
+  logic and deleting it would be a pure regression for zero behavior change,
+  since it was already dead code on the request path.
+- No `latitude`/`longitude` in `facilities_searchable` — distance ranking has
+  no source. Shipping with `distance_km = None` (UI already handles this
+  honestly); geocoding stays P2 (#12), blocked until coords exist.
+
+---
+
+## ⚠️ Blocker #1 — two competing data models (historical — resolved above)
 
 There are two incompatible facility schemas in this repo, and nothing on `main`
 can read the data that actually exists.
@@ -163,15 +189,30 @@ are configured; otherwise `"demo"` (the UI shows an honest banner).
 5. **MLflow 3 tracing** (`tracing.py`) — attach inputs/outputs + token-cost
    attributes per span so extraction → scoring → ranking shows **with receipts**
    (brief stretch #1). Cheap, and it is explicitly rewarded by the rubric.
-6. **Native review of the 15 machine-drafted translations.** `localization.py` is
-   called *approved* translations and they are not approved. Highest priority: the
-   three `emergency_*` keys — machine-drafted safety copy is a real risk, not a
-   polish item. Needs a Hindi and a Marathi speaker.
-7. **Language picker is still mostly a facade.** `LANDING_COPY` is English-only and
-   every label in `show_intake()` is hardcoded English, so switching to हिंदी
-   changes the eyebrow, step chips, and footer and nothing else.
-   `STRINGS["tagline"]`, `["promise"]`, `["vitals"]` are translated but never
-   rendered — dead keys. Biggest visible frontend gap.
+6. **Native review of the machine-drafted translations (now 17 keys, was 15).**
+   `localization.py` is called *approved* translations and they are not
+   approved. Highest priority: the five `emergency_*` keys (2 more were added
+   2026-07-19 — see #7 — to stop `show_intake()`'s emergency warning/checkbox
+   from hardcoding English) — machine-drafted safety copy is a real risk, not a
+   polish item. Needs a Hindi and a Marathi speaker. **Still blocked — no
+   native reviewer available in this session.**
+7. **Language picker gap, corrected and partly closed (2026-07-19).** This item
+   was stale: `LANDING_COPY` doesn't exist (landing hero/about/tiles copy is in
+   `UI_COPY` and was already fully translated for hi/mr), and most of
+   `show_intake()` already used `tx()`. What was actually true and is now
+   fixed: `STRINGS["tagline"]`/`["promise"]`/`["vitals"]` were dead (duplicated
+   the already-rendered `hero_tagline`/`hero_sub`, "vitals" had no render slot)
+   — removed rather than given a new UI slot. The emergency intake warning +
+   checkbox in `show_intake()` were hardcoded English — now routed through
+   `safety_copy()` via two new governed keys (see #6). The confirmation
+   summary sentence and its caption/"See all fields" label were also
+   hardcoded English — now `tx("confirm_summary"/"confirm_caption"/
+   "confirm_see_fields")`.
+   **Still open:** the login popover, profile page, saved-plans, and blocklist
+   screens still hardcode English (`app.py` around `show_account_control`,
+   `show_profile`, blocklist/rating captions) — not touched this pass because
+   it is a large batch of new machine-drafted strings and #6's native-review
+   blocker applies to every one of them.
 8. **Resolve the auth/persistence conflict.** `mariam`'s `auth.py` (pseudonymous
    owner ID, never stores email) vs `app.py`'s `do_login` (stores name + email) vs
    `SessionLocalPlanStore` vs `src/profiles.py`. See
