@@ -60,6 +60,8 @@ _DEMO_ENRICHMENT: list[dict[str, Any]] = [
              "evidence": ["Demo record: “daily outpatient cardiology OPD, 9am–1pm”"]},
             {"claim": "24-hour emergency intake",
              "evidence": ["Demo record: “casualty department open 24 hours”"]},
+            {"claim": "Hospital ambulance service",
+             "evidence": ["Seeded demo record: “ambulance desk available through the hospital switchboard”"]},
         ],
         "procedures": [
             {"claim": "ECG", "evidence": ["Demo record: “ECG performed on site”"]},
@@ -125,6 +127,8 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
     capability = str(request.get("capability") or "the confirmed care need")
     preference = str(request.get("facility_preference") or "either")
     public_note = "A public-facility preference was included in this demo ranking." if preference == "public" else "Your selected preferences were included in this demo ranking."
+    deadline = request.get("required_arrival_date")
+    deadline_note = f" The requested arrival date {deadline} is carried into journey planning." if deadline else ""
 
     options: list[dict[str, Any]] = [
         {
@@ -136,7 +140,9 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
             "evidence": "Demo evidence receipt: a future Databricks record will show the literal supporting facility text here.",
             "unknowns": "We could not confirm real-time service availability, appointment slots, or consultation price.",
             "next_step": "Call the official facility contact once it is sourced, then ask whether the needed service is currently available.",
-            "ranking": f"Chosen because it is the strongest seeded evidence match. {public_note}",
+            "ranking": f"Chosen because it is the strongest seeded evidence match. {public_note}{deadline_note}",
+            "distance_km": 18,
+            "ambulance_documented": True,
         },
         {
             "label": "Lower-burden route",
@@ -147,7 +153,9 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
             "evidence": "Demo evidence receipt: the production adapter will cite a literal facility-data span.",
             "unknowns": "We could not confirm the fee, scheme eligibility, or current capacity.",
             "next_step": "Call first and ask about the care need, referral requirements, and expected charges.",
-            "ranking": "Chosen as a seeded lower-burden alternative, not as a claim of lower clinical quality or cost.",
+            "ranking": "Chosen as a seeded lower-burden alternative, not as a claim of lower clinical quality or cost." + deadline_note,
+            "distance_km": 8,
+            "ambulance_documented": False,
         },
         {
             "label": "Alternative to verify",
@@ -158,7 +166,9 @@ def build_demo_options(request: dict[str, Any]) -> list[dict[str, Any]]:
             "evidence": "Demo evidence receipt: the production adapter will display supporting and conflicting source text when present.",
             "unknowns": "We could not confirm this option's current service, cost, appointment, or accessibility details.",
             "next_step": "Use the future official contact link or call script to confirm details before travel.",
-            "ranking": "Included to make uncertainty visible and preserve a user choice beyond the first recommendation.",
+            "ranking": "Included to make uncertainty visible and preserve a user choice beyond the first recommendation." + deadline_note,
+            "distance_km": 35,
+            "ambulance_documented": False,
         },
     ]
     for option, payload in zip(options, _DEMO_ENRICHMENT):

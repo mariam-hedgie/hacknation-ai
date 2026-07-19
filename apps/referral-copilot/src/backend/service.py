@@ -149,6 +149,7 @@ def _intake_from_request(request: dict[str, Any]) -> IntakeRequest:
         travel_modes=tuple(request.get("travel_modes") or ()),
         travel_budget_rupees=request.get("travel_budget_rupees"),
         care_budget_rupees=request.get("care_budget_rupees"),
+        required_arrival_date=(request.get("required_arrival_date") or None),
         facility_preference=str(request.get("facility_preference") or "either").lower(),
         language_preference=(request.get("language") or None),
         medication_name=(request.get("medication_name") or None),

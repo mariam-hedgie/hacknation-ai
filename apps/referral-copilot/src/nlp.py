@@ -35,6 +35,7 @@ _TRAVEL_MODES = {
     "train",
     "taxi",
     "plane",
+    "ambulance",
 }
 
 
@@ -70,6 +71,7 @@ class _IntakeExtraction(BaseModel):
             "train",
             "taxi",
             "plane",
+            "ambulance",
         ]
     ] = Field(default_factory=list, max_length=8)
     language: str | None = Field(default=None, max_length=80)

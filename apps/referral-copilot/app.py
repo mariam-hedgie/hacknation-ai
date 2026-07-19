@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 import time
+from datetime import date, timedelta
 from html import escape
 from pathlib import Path
 
@@ -41,6 +42,12 @@ from src.nlp import (
     IntakeNlpUnavailableError,
     configured_nlp_client,
     structure_intake,
+)
+from src.journey import (
+    build_ambulance_plan,
+    demo_journey_estimate,
+    external_ticket_links,
+    google_maps_directions_url,
 )
 from src.preferences import budget_fit, summarize_preferences
 from src.ui_contract import AvenUiBackend
@@ -770,7 +777,9 @@ def show_intake() -> None:
             except VoiceUnavailableError as exc:
                 st.warning(str(exc))
     else:
-        st.caption("Voice is not connected here. Typed input is fully supported.")
+        st.caption(
+            "Voice is not enabled for this demo. Typed English, Hindi, and Marathi intake remains fully supported; broader multilingual voice is future work."
+        )
 
     natural_request = st.text_area(
         "Describe the care request naturally",
@@ -890,6 +899,7 @@ def show_intake() -> None:
                     "train": "Train / public transit",
                     "taxi": "Taxi (comparison only until sourced)",
                     "plane": "Flight (comparison only; not a Google Routes mode)",
+                    "ambulance": "Ambulance (call hospital to confirm)",
                 }[mode],
             )
             travel_budget_rupees = int(
@@ -915,6 +925,12 @@ def show_intake() -> None:
             )
             preference = st.radio(tx("facility_label"), options=["Either", "Public", "Private"],
                                   horizontal=True, format_func=label_for)
+            required_arrival_date = st.date_input(
+                "Need to arrive by",
+                value=date.today() + timedelta(days=3),
+                min_value=date.today(),
+                help="Aven uses this in journey planning. It is not an appointment or availability guarantee.",
+            )
         language = st.text_input(
             tx("language_label"),
             value=(draft.get("language") or "") if use_draft else "",
@@ -936,6 +952,7 @@ def show_intake() -> None:
             "travel_modes": travel_modes or ["bus", "train"],
             "travel_budget_rupees": travel_budget_rupees or None,
             "care_budget_rupees": care_budget_rupees or None,
+            "required_arrival_date": required_arrival_date.isoformat(),
             "facility_preference": preference.lower(),
             "language": language or "not specified",
             "medication_name": detail if care_task == "refill" else None,
@@ -981,7 +998,8 @@ def show_confirmation() -> None:
     st.markdown(
         f"> You are looking for **{request['capability']}** from **{request['location']}**, "
         f"**{request['urgency']}**. Your limits are **{preference_summary}**, "
-        f"with **{request['facility_preference']}** facilities preferred."
+        f"with **{request['facility_preference']}** facilities preferred. "
+        f"You want to arrive by **{request.get('required_arrival_date', 'not specified')}**."
     )
     with st.expander(tx("confirm_see_fields")):
         st.json(request)
@@ -1094,6 +1112,131 @@ def show_enrichment(option: dict) -> None:
                 st.markdown(quality_note_html(field, sparse=True), unsafe_allow_html=True)
 
 
+def show_journey_actions(index: int, option: dict) -> None:
+    """Keep the whole next-step plan together without inventing live travel."""
+
+    request = st.session_state.request
+    facility = str(option["facility"])
+    modes = list(request.get("travel_modes") or ["bus", "train"])
+    with st.expander("Journey, tickets and ambulance", expanded=index == 0):
+        selected_mode = st.selectbox(
+            "Plan this journey by",
+            options=modes,
+            format_func=lambda mode: {
+                "walk": "Walking",
+                "bicycle": "Bicycle",
+                "motorbike": "Motorbike or scooter",
+                "car": "Car",
+                "bus": "Bus",
+                "train": "Train",
+                "taxi": "Taxi",
+                "plane": "Flight",
+                "ambulance": "Ambulance",
+            }.get(mode, mode.title()),
+            key=f"journey_mode_{index}",
+        )
+
+        try:
+            maps_url = google_maps_directions_url(
+                request.get("location"), facility, selected_mode
+            )
+            st.link_button(
+                "Open route in Google Maps",
+                maps_url,
+                use_container_width=True,
+            )
+            st.caption(
+                "No API key is needed. Google receives the entered origin and hospital only when you open this external link; verify the exact branch."
+            )
+        except ValueError as exc:
+            st.info(str(exc))
+
+        distance_km = option.get("distance_km")
+        if backend.backend_mode() == "demo" and distance_km and selected_mode != "plane":
+            estimate = demo_journey_estimate(distance_km, selected_mode)
+            st.markdown(
+                f"**Seeded journey comparison:** about {estimate.duration_minutes} minutes · "
+                f"₹{estimate.cost_low_rupees:,}–₹{estimate.cost_high_rupees:,}"
+            )
+            st.caption(estimate.disclaimer)
+        elif selected_mode == "plane":
+            st.info(
+                "Flight schedules, duration, and prices are deferred. Search the selected origin, destination, and arrival date on an airline site."
+            )
+
+        ticket_links = external_ticket_links(selected_mode)
+        if ticket_links:
+            st.markdown("**External booking options**")
+            st.caption(
+                f"Search from {request.get('location')} toward {facility} for arrival by "
+                f"{request.get('required_arrival_date', 'your chosen date')}. Aven does not book or process payment."
+            )
+            ticket_cols = st.columns(len(ticket_links))
+            for column, link in zip(ticket_cols, ticket_links):
+                column.link_button(
+                    f"External booking · {link.label}",
+                    link.url,
+                    use_container_width=True,
+                )
+
+        st.markdown("**Ambulance plan**")
+        wants_ambulance = st.checkbox(
+            "Add an ambulance plan for this hospital",
+            value="ambulance" in modes,
+            key=f"ambulance_selected_{index}",
+        )
+        source_key = f"ambulance_sources_{index}"
+        if wants_ambulance and st.button(
+            "Find hospital phone & ambulance sources",
+            key=f"ambulance_search_{index}",
+            use_container_width=True,
+        ):
+            try:
+                st.session_state[source_key] = search_public_sources(
+                    facility,
+                    "ambulance service contact",
+                )
+            except (WebEvidenceConfigurationError, WebEvidenceUnavailableError) as exc:
+                st.info(str(exc))
+
+        ambulance_sources = st.session_state.get(source_key, ())
+        candidate_phones = tuple(
+            phone for source in ambulance_sources for phone in source.phone_numbers
+        )
+        plan = build_ambulance_plan(
+            distance_km=float(distance_km) if distance_km is not None else None,
+            service_documented=bool(option.get("ambulance_documented")),
+            candidate_phones=candidate_phones,
+            selected=wants_ambulance,
+        )
+        if option.get("ambulance_documented"):
+            st.success("Ambulance service is documented in this option's record; current availability still requires a call.")
+        else:
+            st.warning("Ambulance service is not documented for this hospital. Call the hospital and verify.")
+        st.write(plan.instruction)
+        for source in ambulance_sources:
+            st.link_button(f"Verify source · {source.title}", source.url)
+            for phone in source.phone_numbers:
+                st.write(f"Phone candidate: {phone} — verify it on the linked page before calling.")
+        if plan.call_url:
+            st.link_button(
+                "Call hospital number",
+                plan.call_url,
+                use_container_width=True,
+            )
+        if plan.estimate:
+            st.markdown(
+                f"**Seeded ambulance comparison:** about {plan.estimate.duration_minutes} minutes · "
+                f"₹{plan.estimate.cost_low_rupees:,}–₹{plan.estimate.cost_high_rupees:,}"
+            )
+            st.caption(plan.estimate.disclaimer)
+        st.link_button(
+            "Emergency only · Call 112",
+            plan.emergency_call_url,
+            use_container_width=True,
+        )
+
+
 def show_option_card(index: int, option: dict) -> None:
     evidence_status = option.get("evidence_status", "not_documented")
     profile = current_profile()
@@ -1136,6 +1279,7 @@ def show_option_card(index: int, option: dict) -> None:
         st.markdown(f'<p class="aven-fact"><strong>What to do next:</strong> {escape(str(option["next_step"]))}</p>', unsafe_allow_html=True)
 
         show_enrichment(option)
+        show_journey_actions(index, option)
 
         button_cols = st.columns([1, 1, 1])
         with button_cols[0]:
@@ -1195,6 +1339,7 @@ TRAVEL_MODES = (
     "train",
     "taxi",
     "plane",
+    "ambulance",
 )
 
 

@@ -9,6 +9,7 @@ must pass through a confirmed request.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from enum import Enum
 from typing import Iterable
 
@@ -53,6 +54,7 @@ class IntakeRequest:
     travel_modes: tuple[str, ...] = ()
     travel_budget_rupees: int | None = None
     care_budget_rupees: int | None = None
+    required_arrival_date: str | None = None
     facility_preference: str = "either"
     language_preference: str | None = None
     medication_name: str | None = None
@@ -78,6 +80,9 @@ class FacilityCandidate:
     # only: ranking reads evidence_status, never this blob, so a richer record can
     # never out-rank a documented one just for having more extracted text.
     enrichment: dict | None = None
+    estimated_journey_minutes: int | None = None
+    estimated_travel_cost_rupees: int | None = None
+    arrival_feasible: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -128,6 +133,11 @@ def validate_confirmed_intake(request: IntakeRequest) -> tuple[str, ...]:
         errors.append("Travel budget cannot be negative.")
     if request.care_budget_rupees is not None and request.care_budget_rupees < 0:
         errors.append("Care budget cannot be negative.")
+    if request.required_arrival_date:
+        try:
+            date.fromisoformat(request.required_arrival_date)
+        except (TypeError, ValueError):
+            errors.append("Choose a valid required-arrival date.")
 
     if request.care_task in {"known_referral", "procedure", "lab", "follow_up"} and not _present(
         request.confirmed_capability
@@ -215,6 +225,32 @@ def _rank_candidate(request: IntakeRequest, candidate: FacilityCandidate) -> Ran
         reasons.append(f"{distance:g} km from the entered location")
     else:
         cautions.append("distance not documented")
+
+    if request.required_arrival_date:
+        if candidate.arrival_feasible is True:
+            score += 50
+            reasons.append(f"can plausibly arrive by {request.required_arrival_date}")
+        elif candidate.arrival_feasible is False:
+            score -= 150
+            cautions.append(f"may miss the requested arrival date {request.required_arrival_date}")
+        else:
+            cautions.append("arrival-by feasibility not confirmed")
+
+    if candidate.estimated_journey_minutes is not None:
+        minutes = max(candidate.estimated_journey_minutes, 0)
+        score -= round(minutes / 15)
+        reasons.append(f"estimated journey time considered: {minutes} minutes")
+
+    if request.travel_budget_rupees is not None:
+        travel_cost = candidate.estimated_travel_cost_rupees
+        if travel_cost is None:
+            cautions.append("travel cost not confirmed")
+        elif travel_cost <= request.travel_budget_rupees:
+            score += 15
+            reasons.append("estimated travel cost fits your stated travel budget")
+        else:
+            score -= 30
+            cautions.append("estimated travel cost exceeds your stated travel budget")
 
     normalised_type = (candidate.facility_type or "").casefold()
     if request.facility_preference in {"public", "private"}:

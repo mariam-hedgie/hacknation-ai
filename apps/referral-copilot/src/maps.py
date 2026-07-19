@@ -22,6 +22,7 @@ SUPPORTED_TRAVEL_MODES = (
     "train",
     "taxi",
     "plane",
+    "ambulance",
 )
 
 _GOOGLE_ROUTE_MODES = {
@@ -104,7 +105,7 @@ def validate_travel_mode(mode: str) -> str:
     normalized = mode.strip().casefold()
     if normalized not in SUPPORTED_TRAVEL_MODES:
         raise ValueError(
-            "Unsupported travel mode. Choose walk, bicycle, motorbike, car, bus, train, taxi, or plane."
+            "Unsupported travel mode. Choose walk, bicycle, motorbike, car, bus, train, taxi, plane, or ambulance."
         )
     return normalized
 

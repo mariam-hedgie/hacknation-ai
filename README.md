@@ -18,7 +18,7 @@ The seeded path stays usable when live services are unavailable.
 1. Enter a typed request in English, Hindi, or Marathi.
 2. Choose the task: referral/procedure, refill, lab, symptom-first, or follow-up.
 3. Set urgency, maximum distance, usable transport modes, separate travel and
-   care budgets in rupees, and public/private preference.
+   care budgets in rupees, required-arrival date, and public/private preference.
 4. Review and confirm Aven's structured interpretation.
 5. Compare three clearly labelled options, inspect proof and unknowns, and save
    a choice or correction.
@@ -93,7 +93,9 @@ TAVILY_API_KEY=your_real_tavily_key
   to OpenAI storage (`store=False`).
 - **ElevenLabs:** create a restricted server key with Speech-to-Text access in
   the ElevenLabs dashboard. The recording is sent only after explicit consent,
-  and the transcript returns to the editable intake box.
+  and the transcript returns to the editable intake box. Voice is intentionally
+  hidden for the hackathon unless `AVEN_VOICE_ENABLED=true`; typed English,
+  Hindi, and Marathi remain the reliable path.
 - **Tavily:** create a key at <https://app.tavily.com>, add it as
   `TAVILY_API_KEY`, restart the app, open a result, then choose **Contact,
   phone, doctors, fees and public sources → Find contact & public sources**.
@@ -117,6 +119,38 @@ Open **My plans** in the top navigation at any time. Saved facilities retain
 the route summary and next action; past requests and blocked facilities appear
 on the same screen.
 
+### No-key journey and ambulance demo
+
+Every facility card builds a universal Google Maps Directions URL from the
+entered origin and hospital name. Google documents that Maps URLs do not need
+an API key. The user must verify the exact hospital branch in Google Maps,
+because the challenge data does not contain structured addresses, Place IDs,
+or coordinates.
+
+The local golden path uses clearly labelled seeded distances, journey times,
+and rupee ranges so the complete interaction remains demoable without claiming
+live traffic or fares. Bus links open redBus, train links open IRCTC, and flight
+links open Air India and IndiGo. These are external booking actions; Aven does
+not process a booking or payment and does not claim that a matching service is
+available.
+
+Ambulance service is never assumed. Each facility prompts for an ambulance
+plan. A documented ambulance claim is shown with its evidence; otherwise Aven
+instructs the person to call the hospital and verify. Tavily phone numbers stay
+labelled as candidates until checked on their linked source. Seeded ambulance
+time/cost ranges are comparisons only, explicitly noting that a hospital or
+public ambulance may be free. Emergencies expose the official India `112`
+action and bypass ordinary planning.
+
+The recommendation pipeline is intentionally explainable rather than an opaque
+LLM verdict:
+
+1. require documented or officially corroborated capability evidence;
+2. prefer plans that can plausibly meet the requested arrival date;
+3. compare evidence quality, journey time, sourced/seeded travel cost, and the
+   user's stated preferences;
+4. label missing information as unknown and show every ordering reason.
+
 ## Integration modes
 
 | Capability | Live mode | Safe fallback |
@@ -124,8 +158,8 @@ on the same screen.
 | Language structuring | OpenAI Responses API (`gpt-5.6-sol` by default) | Manual review form |
 | Facility evidence | Databricks SQL / governed tables | Seeded demo options labelled as demo |
 | Saved plans and feedback | Lakebase or approved Databricks write path | Current Streamlit session |
-| Maps/routes | Restricted Google Maps key | ORS road modes, then offline comparison labels |
-| Voice | Server-side ElevenLabs key | Typed input |
+| Maps/routes | Restricted Google Routes/Places key | No-key Google Maps link plus seeded comparison |
+| Voice | Explicitly enabled server-side ElevenLabs key | Typed multilingual input; voice described as future work |
 | Public source discovery | Server-side Tavily key | No external lookup |
 | Languages | English, Hindi, Marathi UI strings | English with a visible fallback notice |
 

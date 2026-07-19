@@ -53,6 +53,9 @@ def configured_voice_client(
     env: Mapping[str, str] | None = None,
 ) -> SpeechClient | None:
     source = os.environ if env is None else env
+    enabled = (source.get("AVEN_VOICE_ENABLED") or "").strip().casefold()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
     key = (source.get("ELEVENLABS_API_KEY") or "").strip()
     if not key or key.casefold().startswith("todo"):
         return None
