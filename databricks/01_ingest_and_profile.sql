@@ -1,3 +1,8 @@
+-- SUPERSEDED (see TODO.md "Decision — Model B adopted"): this describes Model A
+-- (facilities_normalized / facility_claims_evidence / ...), which was never
+-- built. The real table is workspace.default.facilities_searchable, built by
+-- ../extract_data.py + ../flatten_data.py. Kept for reference only.
+--
 -- Data Legend phase 1: preserve the source and profile it before feature work.
 -- Replace both identifiers once. Never paste patient data or secrets here.
 

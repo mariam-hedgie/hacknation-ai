@@ -86,27 +86,18 @@ FEEDBACK_OPTIONS = {
 
 STRINGS = {
     "en": {
-        "tagline": "The right care route, with proof.",
         "boundary": "Aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
-        "promise": "Tell us what you need. We will help you plan the next step with evidence from facility records.",
         "steps": ["Tell us", "Confirm", "Your plan"],
-        "vitals": "Connected across facility networks",
         "eyebrow": "Care Navigation · Evidence-Backed",
     },
     "hi": {
-        "tagline": "सही देखभाल मार्ग, प्रमाण के साथ।",
         "boundary": "Aven देखभाल तक पहुंच की योजना बनाने में मदद करता है — यह निदान नहीं करता, दवा नहीं लिखता, कीमतों का वादा नहीं करता, लाइव उपलब्धता नहीं दिखाता, और न ही आपातकालीन देखभाल की जगह लेता है।",
-        "promise": "हमें बताएं आपको क्या चाहिए। हम सुविधा रिकॉर्ड के प्रमाण के साथ अगला कदम बनाने में मदद करेंगे।",
         "steps": ["बताएं", "पुष्टि करें", "आपकी योजना"],
-        "vitals": "सुविधा नेटवर्क में सक्रिय रूप से जुड़ा हुआ",
         "eyebrow": "देखभाल मार्गदर्शन · प्रमाण-आधारित",
     },
     "mr": {
-        "tagline": "योग्य काळजी मार्ग, पुराव्यासह.",
         "boundary": "Aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते — हे निदान करत नाही, औषध लिहून देत नाही, किमतींचे आश्वासन देत नाही, थेट उपलब्धता दाखवत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
-        "promise": "तुम्हाला काय हवे आहे ते सांगा. आम्ही सुविधा नोंदींच्या पुराव्यासह पुढील पाऊल ठरवण्यास मदत करू.",
         "steps": ["सांगा", "पुष्टी करा", "तुमची योजना"],
-        "vitals": "सुविधा नेटवर्कमध्ये सक्रियपणे जोडलेले",
         "eyebrow": "काळजी मार्गदर्शन · पुरावा-आधारित",
     },
 }
@@ -168,6 +159,9 @@ UI_COPY = {
         "confirm_title": "योजना बनाने से पहले पुष्टि करें",
         "confirm_edit": "अनुरोध संपादित करें",
         "confirm_go": "पुष्टि करें और मार्ग खोजें",
+        "confirm_summary": "> आप खोज रहे हैं **{capability}**, **{location}** से, **{urgency}**। आप **{travel_tolerance} यात्रा भार** और **{facility_preference}** सुविधाएं पसंद करते हैं।",
+        "confirm_see_fields": "सभी फ़ील्ड देखें",
+        "confirm_caption": "हम आपके पुष्टि किए गए अनुरोध का उपयोग प्रलेखित सुविधा विकल्पों की तुलना करने के लिए करते हैं। हम कीमत, उपलब्धता या पात्रता का अनुमान नहीं लगाते।",
         "results_title": "सर्वोत्तम अगला कदम",
         "scale": {
             "Routine": "सामान्य", "Soon": "जल्द", "Urgent": "तत्काल",
@@ -227,6 +221,9 @@ UI_COPY = {
         "confirm_title": "नियोजनापूर्वी पुष्टी करा",
         "confirm_edit": "विनंती संपादित करा",
         "confirm_go": "पुष्टी करा आणि मार्ग शोधा",
+        "confirm_summary": "> तुम्ही शोधत आहात **{capability}**, **{location}** येथून, **{urgency}**. तुम्हाला **{travel_tolerance} प्रवास भार** आणि **{facility_preference}** सुविधा हव्या आहेत.",
+        "confirm_see_fields": "सर्व फील्ड पहा",
+        "confirm_caption": "आम्ही तुमच्या पुष्टी केलेल्या विनंतीचा वापर नोंदणीकृत सुविधा पर्यायांची तुलना करण्यासाठी करतो. आम्ही किंमत, उपलब्धता किंवा पात्रतेचा अंदाज लावत नाही.",
         "results_title": "सर्वोत्तम पुढील पाऊल",
         "scale": {
             "Routine": "नियमित", "Soon": "लवकर", "Urgent": "तातडीचे",
@@ -286,6 +283,9 @@ UI_COPY = {
         "confirm_title": "Please confirm before we plan",
         "confirm_edit": "Edit request",
         "confirm_go": "Confirm and find routes",
+        "confirm_summary": "> You are looking for **{capability}** from **{location}**, **{urgency}**. You prefer **{travel_tolerance} travel burden** and **{facility_preference}** facilities.",
+        "confirm_see_fields": "See all fields",
+        "confirm_caption": "We use your confirmed request to compare documented facility options. We do not infer price, availability, or eligibility.",
         "results_title": "Best next step",
         # Identity map: scale() falls back to the English value, which is also the
         # canonical value stored on the request.
@@ -732,8 +732,8 @@ def show_intake() -> None:
     )
 
     if care_task == "symptom_first":
-        st.warning("If you think this may be an emergency, seek urgent local help now. Aven cannot assess or diagnose symptoms.")
-        emergency = st.checkbox("I have a possible emergency warning sign or need immediate help")
+        st.warning(safety_copy("emergency_intake_warning"))
+        emergency = st.checkbox(safety_copy("emergency_intake_checkbox"))
         st.session_state.emergency_reported = emergency
         if emergency:
             show_emergency_panel()
@@ -974,9 +974,9 @@ def show_confirmation() -> None:
         f"**{request['urgency']}**. Your limits are **{preference_summary}**, "
         f"with **{request['facility_preference']}** facilities preferred."
     )
-    with st.expander("See all fields"):
+    with st.expander(tx("confirm_see_fields")):
         st.json(request)
-    st.caption("We use your confirmed request to compare documented facility options. We do not infer price, availability, or eligibility.")
+    st.caption(tx("confirm_caption"))
     left, right = st.columns(2)
     with left:
         if st.button(tx("confirm_edit"), use_container_width=True):
@@ -1330,7 +1330,8 @@ def show_ask_data() -> None:
 
     for turn in reversed(st.session_state.ask_history):
         result = turn["result"]
-        st.markdown(f'<p class="aven-fact"><strong>You asked:</strong> {turn["question"]}</p>', unsafe_allow_html=True)
+        safe_question = escape(str(turn["question"]))
+        st.markdown(f'<p class="aven-fact"><strong>You asked:</strong> {safe_question}</p>', unsafe_allow_html=True)
         if result.get("answer"):
             st.markdown(result["answer"])
         if result.get("sql"):

@@ -1,3 +1,6 @@
+-- SUPERSEDED (see TODO.md "Decision — Model B adopted"): Model A, never built.
+-- Real table is workspace.default.facilities_searchable. Reference only.
+--
 -- Data Legend phase 3: ordinal trust, gaps, and reviewer-confirmed conflicts.
 -- Replace <TARGET_SCHEMA> once. No probability or clinical-quality score is used.
 

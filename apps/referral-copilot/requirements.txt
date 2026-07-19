@@ -12,5 +12,5 @@ python-dotenv>=1,<2
 # src/backend are guarded so the app still runs locally without them.
 # TODO: uncomment/pin as each integration lands (see apps/TODO.md).
 # mlflow>=3.0                     # observability + trace cost tracking
-# databricks-vectorsearch>=0.40   # Mosaic AI Vector Search retrieval
+databricks-vectorsearch>=0.40     # Mosaic AI Vector Search retrieval
 # databricks-genie                # Genie autonomous data tasks (via databricks-sdk)

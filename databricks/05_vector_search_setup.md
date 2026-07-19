@@ -1,5 +1,17 @@
 # AI Search (Vector Search) setup gate
 
+> **Superseded input table** (see TODO.md "Decision — Model B adopted"): the
+> steps below were written against Model A's `facility_source_chunks`, which
+> was never built. The real table to index is
+> `workspace.default.facilities_searchable` (one row per facility; see
+> `../flatten_data.py`), keyed by `unique_id` rather than `chunk_id`, with the
+> embedding source drawn from `capabilities`/`procedures`/`equipment`/
+> `facility_facts`/`specialties` instead of a single `literal_source_text`
+> column. The gate checklist and the "semantic similarity is not evidence"
+> guidance below still apply; only the source table/columns must be swapped.
+> `src/backend/vector_search.py::retrieve()` already queries
+> `facilities_searchable` with the real column names.
+
 The original brief lists Mosaic AI Vector Search and the technical rubric asks
 whether it is used well. Configure it only after
 `02_build_evidence_tables.py` has created
