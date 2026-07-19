@@ -1,5 +1,6 @@
 import sys
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 
 
@@ -47,6 +48,21 @@ class DemoLogicTests(unittest.TestCase):
         unknown_text = " ".join(option["unknowns"].lower() for option in options)
         self.assertIn("could not confirm", unknown_text)
         self.assertNotIn("not available", unknown_text)
+
+    def test_tight_arrival_date_changes_the_seeded_recommendation(self):
+        options = build_demo_options(
+            {
+                "care_task": "known_referral",
+                "capability": "cardiology",
+                "travel_modes": ["bus"],
+                "travel_budget_rupees": 2_000,
+                "required_arrival_date": (date.today() + timedelta(days=1)).isoformat(),
+            }
+        )
+
+        self.assertEqual(options[0]["label"], "Lower-burden route")
+        self.assertTrue(options[0]["arrival_feasible"])
+        self.assertIn("arrival date", options[0]["ranking"].casefold())
 
 
 if __name__ == "__main__":
