@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .. import enrichment
 from ..demo_adapter import build_demo_options
 from ..domain import IntakeRequest, RankedOption, ShortlistResult, SafetyBranch, build_shortlist
 from . import tracing
@@ -130,6 +131,7 @@ def _ranked_to_display(option: RankedOption, index: int) -> dict[str, Any]:
         "next_step": "Call the official facility contact to confirm the service is currently available.",
         "ranking": "; ".join(option.reasons) or "Ranked by documented evidence and your preferences.",
         "evidence_status": c.evidence_status.value,
+        "enrichment": enrichment.normalize(c.enrichment),
     }
 
 

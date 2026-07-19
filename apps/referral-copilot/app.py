@@ -22,6 +22,7 @@ APP_DIR = Path(__file__).resolve().parent
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
+from src import enrichment as enrich
 from src import profiles
 from src.backend import service as backend
 from src.demo_adapter import CARE_TASKS, next_question
@@ -32,9 +33,12 @@ from src.styles import (
     LOGO_PULSE_SVG,
     SCROLL_REVEAL_JS,
     card_classes,
+    chips_html,
+    claim_html,
     evidence_badge_html,
     marquee_html,
     option_icon,
+    quality_note_html,
 )
 
 LANGUAGES = {"en": "English", "hi": "हिंदी", "mr": "मराठी"}
@@ -501,6 +505,41 @@ def show_confirmation() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def show_enrichment(option: dict) -> None:
+    """Render the extractor's per-facility output schema: what was documented,
+    with the literal span behind each claim, and what the record itself is not
+    trustworthy about. Nothing here is inferred — an empty section is stated as a
+    gap in the record, never as an absent service."""
+    data = enrich.normalize(option.get("enrichment"))
+
+    st.markdown(chips_html(data["specialties"]), unsafe_allow_html=True)
+    for line in enrich.cautions(data):
+        sparse = line.startswith("This facility's record is sparse")
+        st.markdown(quality_note_html(line, sparse=sparse), unsafe_allow_html=True)
+
+    if enrich.is_empty(data):
+        st.caption("Nothing could be extracted from this facility's record yet. Confirm services by phone.")
+        return
+
+    unverified = enrich.unverified_count(data)
+    summary = "What the records say"
+    if unverified:
+        summary += f" · {unverified} claim(s) without a source span"
+    with st.expander(summary):
+        current_heading = None
+        for heading, text, evidence, verified in enrich.iter_claims(data):
+            if heading != current_heading:
+                st.markdown(f'<div class="aven-claim-group">{heading}</div>', unsafe_allow_html=True)
+                current_heading = heading
+            st.markdown(claim_html(text, evidence, verified), unsafe_allow_html=True)
+
+        conflicts = data["data_quality"]["conflicting_claims"]
+        if conflicts:
+            st.markdown('<div class="aven-claim-group">Conflicting details</div>', unsafe_allow_html=True)
+            for conflict in conflicts:
+                st.markdown(claim_html(conflict, [], True), unsafe_allow_html=True)
+
+
 def show_option_card(index: int, option: dict) -> None:
     evidence_status = option.get("evidence_status", "not_documented")
     profile = current_profile()
@@ -523,6 +562,8 @@ def show_option_card(index: int, option: dict) -> None:
         st.markdown(f'<p class="aven-fact"><strong>{option["travel"]}</strong></p>', unsafe_allow_html=True)
         st.markdown(f'<p class="aven-fact"><strong>{option["cost"]}</strong></p>', unsafe_allow_html=True)
         st.markdown(f'<p class="aven-fact"><strong>What to do next:</strong> {option["next_step"]}</p>', unsafe_allow_html=True)
+
+        show_enrichment(option)
 
         button_cols = st.columns([1, 1, 1])
         with button_cols[0]:

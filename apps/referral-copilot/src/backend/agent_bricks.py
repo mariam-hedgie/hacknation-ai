@@ -31,7 +31,13 @@ class AgentBricksClient:
         TODO(agent-bricks):
           - Call the served Agent Bricks / Foundation Model endpoint to extract
             the capability claim and the LITERAL supporting span (with its source
-            column + row id) from each row's free text.
+            column + row id) from each row's free text. The endpoint returns the
+            extraction OUTPUT SCHEMA documented in ..enrichment; pass each row's
+            response through enrichment.normalize(...) and hand it to
+            FacilityCandidate.enrichment so the card can show the receipts.
+          - Derive evidence_status from that payload rather than trusting it:
+            data_quality.conflicting_claims -> has_conflict=True, and a claim
+            whose evidence list is empty must not reach DOCUMENTED.
           - Produce an EvidenceStatus via domain.evidence_status(...) from the
             extracted span (documented / conflicting / not_documented /
             external_corroborated) — never invent capabilities (self-correction

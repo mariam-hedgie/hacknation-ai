@@ -70,6 +70,10 @@ class FacilityCandidate:
     facility_type: str | None = None
     missing_fields: tuple[str, ...] = ()
     source_spans: tuple[str, ...] = ()
+    # Normalized extractor output (see enrichment.normalize). Carried for display
+    # only: ranking reads evidence_status, never this blob, so a richer record can
+    # never out-rank a documented one just for having more extracted text.
+    enrichment: dict | None = None
 
 
 @dataclass(frozen=True)

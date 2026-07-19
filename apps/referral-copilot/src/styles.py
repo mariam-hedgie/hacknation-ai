@@ -9,6 +9,8 @@ No clinical or ranking logic lives here.
 
 from __future__ import annotations
 
+from html import escape
+
 FONT_IMPORT = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
@@ -386,6 +388,37 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
 .aven-fact { color: var(--muted); font-size: 0.92rem; margin: 0.2rem 0; }
 .aven-fact strong { color: var(--ink); font-weight: 600; }
 
+/* ---------- Facility enrichment (extractor output schema) ---------- */
+.aven-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.35rem 0 0.5rem 0; }
+.aven-chip {
+  display: inline-block; padding: 0.22rem 0.6rem; border-radius: 999px;
+  border: 1px solid var(--line-strong); color: var(--muted);
+  font-size: 0.74rem; font-weight: 600; letter-spacing: 0.03em;
+}
+.aven-claim-group {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--faint); margin: 0.9rem 0 0.35rem 0;
+}
+.aven-claim { padding: 0.45rem 0 0.5rem 0; border-bottom: 1px solid var(--line); }
+.aven-claim:last-child { border-bottom: none; }
+.aven-claim-text { color: var(--ink); font-size: 0.9rem; font-weight: 600; margin: 0; }
+.aven-claim-evidence {
+  color: var(--muted); font-size: 0.82rem; margin: 0.25rem 0 0 0;
+  padding-left: 0.7rem; border-left: 2px solid var(--line-strong); font-style: italic;
+}
+.aven-claim-unverified {
+  color: var(--unknown-ink); background: var(--unknown-bg);
+  border-radius: 999px; padding: 0.12rem 0.5rem; font-size: 0.7rem; font-weight: 700;
+  margin-left: 0.4rem; white-space: nowrap;
+}
+.aven-quality-note {
+  background: var(--conflict-bg); color: var(--conflict-ink); border: 1px solid var(--conflict-ink);
+  border-radius: 10px; padding: 0.55rem 0.8rem; font-size: 0.82rem; margin: 0.5rem 0;
+}
+.aven-quality-note.sparse {
+  background: var(--unknown-bg); color: var(--muted); border-color: var(--line-strong);
+}
+
 .aven-emergency {
   background: var(--emergency-bg); border: 1px solid var(--emergency-border);
   border-left: 4px solid var(--emergency-border);
@@ -503,6 +536,27 @@ def evidence_badge_html(status: str) -> str:
     icon = _ICONS[icon_key]
     dot = '<span class="aven-pulse-dot"></span>' if status in _LIVE_STATUSES else ""
     return f'<span class="aven-badge {status}">{dot}{icon} {copy}</span>'
+
+
+# Enrichment text comes from facility records via a model, so every builder below
+# escapes it — these render inside unsafe_allow_html blocks.
+
+def chips_html(labels: list[str]) -> str:
+    if not labels:
+        return ""
+    chips = "".join(f'<span class="aven-chip">{escape(label)}</span>' for label in labels)
+    return f'<div class="aven-chips">{chips}</div>'
+
+
+def claim_html(text: str, evidence: list[str], verified: bool) -> str:
+    """One extracted claim with its literal spans, or an honest unverified mark."""
+    flag = "" if verified else '<span class="aven-claim-unverified">no source span</span>'
+    spans = "".join(f'<p class="aven-claim-evidence">“{escape(span)}”</p>' for span in evidence)
+    return f'<div class="aven-claim"><p class="aven-claim-text">{escape(text)}{flag}</p>{spans}</div>'
+
+
+def quality_note_html(line: str, *, sparse: bool = False) -> str:
+    return f'<div class="aven-quality-note{" sparse" if sparse else ""}">{escape(line)}</div>'
 
 
 OPTION_ICONS: dict[str, str] = {
