@@ -23,7 +23,8 @@ if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
 from src import profiles
-from src.demo_adapter import CARE_TASKS, build_demo_options, next_question
+from src.backend import service as backend
+from src.demo_adapter import CARE_TASKS, next_question
 from src.styles import (
     CSS,
     ECG_DIVIDER_SVG,
@@ -41,7 +42,7 @@ LANGUAGES = {"en": "English", "hi": "हिंदी", "mr": "मराठी"}
 STRINGS = {
     "en": {
         "tagline": "The right care route, with proof.",
-        "boundary": "Aven helps plan access to care. It does not diagnose or replace emergency care.",
+        "boundary": "Aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
         "promise": "Tell us what you need. We will help you plan the next step with evidence from facility records.",
         "steps": ["Tell us", "Confirm", "Your plan"],
         "vitals": "Connected across facility networks",
@@ -49,7 +50,7 @@ STRINGS = {
     },
     "hi": {
         "tagline": "सही देखभाल मार्ग, प्रमाण के साथ।",
-        "boundary": "Aven देखभाल तक पहुंच की योजना बनाने में मदद करता है। यह निदान नहीं करता या आपातकालीन देखभाल की जगह नहीं लेता।",
+        "boundary": "Aven देखभाल तक पहुंच की योजना बनाने में मदद करता है — यह निदान नहीं करता, दवा नहीं लिखता, कीमतों का वादा नहीं करता, लाइव उपलब्धता नहीं दिखाता, और न ही आपातकालीन देखभाल की जगह लेता है।",
         "promise": "हमें बताएं आपको क्या चाहिए। हम सुविधा रिकॉर्ड के प्रमाण के साथ अगला कदम बनाने में मदद करेंगे।",
         "steps": ["बताएं", "पुष्टि करें", "आपकी योजना"],
         "vitals": "सुविधा नेटवर्क में सक्रिय रूप से जुड़ा हुआ",
@@ -57,7 +58,7 @@ STRINGS = {
     },
     "mr": {
         "tagline": "योग्य काळजी मार्ग, पुराव्यासह.",
-        "boundary": "Aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते. हे निदान करत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
+        "boundary": "Aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते — हे निदान करत नाही, औषध लिहून देत नाही, किमतींचे आश्वासन देत नाही, थेट उपलब्धता दाखवत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
         "promise": "तुम्हाला काय हवे आहे ते सांगा. आम्ही सुविधा नोंदींच्या पुराव्यासह पुढील पाऊल ठरवण्यास मदत करू.",
         "steps": ["सांगा", "पुष्टी करा", "तुमची योजना"],
         "vitals": "सुविधा नेटवर्कमध्ये सक्रियपणे जोडलेले",
@@ -167,19 +168,20 @@ def is_logged_in() -> bool:
 
 
 def persist_profile() -> None:
-    """Save to disk only for logged-in users; guests stay session-only."""
+    """Persist via the Lakebase seam (local JSON fallback today). Logged-in only;
+    guests stay session-only."""
     if is_logged_in():
-        profiles.save_profile(st.session_state.profile)
+        backend.save_profile(st.session_state.profile)
 
 
 def do_login(name: str, email: str) -> None:
     email = email.strip()
-    profile = profiles.load_profile(email)
+    profile = backend.load_profile(email)
     if name.strip():
         profile["name"] = name.strip()
     st.session_state.profile = profile
     st.session_state.user = {"name": profile.get("name") or "Member", "email": email}
-    profiles.save_profile(profile)
+    backend.save_profile(profile)
     st.rerun()
 
 
@@ -491,7 +493,7 @@ def show_confirmation() -> None:
             st.rerun()
     with right:
         if st.button("Confirm and find routes", type="primary", use_container_width=True):
-            st.session_state.options = build_demo_options(request)
+            st.session_state.options = backend.plan_routes(request)
             profiles.add_history(current_profile(), request)
             persist_profile()
             st.session_state.stage = "results"
@@ -552,6 +554,14 @@ def show_results() -> None:
     request = st.session_state.request
     st.markdown('<div class="aven-section-title">Best next step</div>', unsafe_allow_html=True)
     st.caption(f"For: {request['capability']} · Starting from: {request['location']}")
+
+    if backend.backend_mode() == "demo":
+        st.markdown(
+            '<div class="aven-datasource-note">⚙️ Seeded demo data — the Databricks evidence pipeline '
+            '(Vector Search · Agent Bricks · Lakebase) is not connected in this environment. '
+            'Every option is labelled as a demo.</div>',
+            unsafe_allow_html=True,
+        )
 
     options = list(st.session_state.options)
     for option in options:
@@ -719,7 +729,6 @@ def main() -> None:
     st.markdown(
         f'<div class="aven-footer">'
         f'<p class="aven-footer-boundary">🛡️ {t()["boundary"]}</p>'
-        f'<p class="aven-footer-note">Aven does not diagnose, prescribe, promise prices, or show live availability.</p>'
         f"</div>",
         unsafe_allow_html=True,
     )

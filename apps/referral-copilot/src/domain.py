@@ -32,7 +32,7 @@ class SafetyBranch(str, Enum):
 
 
 _CARE_TASKS = frozenset(
-    {"known_referral", "procedure", "lab", "refill", "symptom_first", "follow_up"}
+    {"known_referral", "procedure", "lab", "refill", "vaccination", "symptom_first", "follow_up"}
 )
 _URGENCY = frozenset({"routine", "soon", "urgent", "emergency"})
 _PREFERENCES = frozenset({"public", "private", "either", "unknown"})

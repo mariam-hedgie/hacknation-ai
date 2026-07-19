@@ -443,6 +443,10 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
   background: var(--conflict-bg); color: var(--conflict-ink); border: 1px solid var(--conflict-ink);
   border-radius: 10px; padding: 0.7rem 0.95rem; font-size: 0.86rem; font-weight: 600; margin-bottom: 1rem;
 }
+.aven-datasource-note {
+  background: var(--unknown-bg); color: var(--muted); border: 1px solid var(--line);
+  border-radius: 10px; padding: 0.7rem 0.95rem; font-size: 0.82rem; margin: 0.4rem 0 1rem 0;
+}
 .aven-profile-head { margin: 0.4rem 0 1.4rem 0; }
 .aven-profile-card {
   background: var(--card); border: 1px solid var(--line); border-left: 2px solid var(--accent);
@@ -470,7 +474,6 @@ div[class*="st-key-taskchip_"] button[kind="primary"] {
   color: var(--muted); font-size: 0.86rem; margin: 0; max-width: 60ch;
   display: inline-flex; align-items: center; gap: 0.45rem;
 }
-.aven-footer-note { color: var(--faint); font-size: 0.78rem; margin: 0; }
 
 @media (max-width: 720px) {
   .aven-about-points { grid-template-columns: 1fr; }
