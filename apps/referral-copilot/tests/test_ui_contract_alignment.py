@@ -158,6 +158,50 @@ class SimplifiedExperienceTests(unittest.TestCase):
         source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn("send this recording to ElevenLabs", source)
 
+    def test_openai_intake_requires_consent_and_review(self):
+        source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertIn("Structure with OpenAI", source)
+        self.assertIn("send this text to OpenAI", source)
+        self.assertIn("Review every extracted detail", source)
+
+    def test_my_plans_is_always_available_from_the_header(self):
+        import inspect
+
+        app = _app_module()
+        source = inspect.getsource(app.show_header_bar)
+        self.assertIn('"My plans"', source)
+        self.assertNotIn("if has_saved", source)
+
+    def test_account_modes_are_explained_without_calling_demo_login_signup(self):
+        import inspect
+
+        app = _app_module()
+        source = inspect.getsource(app.show_account_control)
+        self.assertIn("Guest", source)
+        self.assertIn("Local demo profile", source)
+        self.assertIn("Databricks workspace account", source)
+        self.assertIn("Google sign-in is not configured", source)
+
+    def test_homepage_has_a_visual_proof_rail_and_equal_height_task_cards(self):
+        app_source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        style_source = (APP_ROOT / "src" / "styles.py").read_text(encoding="utf-8")
+        self.assertIn("aven-home-proof-grid", app_source)
+        self.assertIn("height: 232px", style_source)
+        self.assertIn('button p:nth-child(1)', style_source)
+        self.assertIn('button p:nth-child(3)', style_source)
+
+    def test_travel_picker_includes_google_modes_and_comparison_only_flight(self):
+        app = _app_module()
+        self.assertEqual(
+            app.TRAVEL_MODES,
+            ("walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane"),
+        )
+
+    def test_exact_conflicts_and_contact_candidates_are_visible(self):
+        source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertIn("Exact details that disagree", source)
+        self.assertIn("Phone candidate", source)
+
 
 if __name__ == "__main__":
     unittest.main()

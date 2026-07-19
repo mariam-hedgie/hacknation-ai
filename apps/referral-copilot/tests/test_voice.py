@@ -10,7 +10,7 @@ from pathlib import Path
 APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
-from src.voice import VoiceUnavailableError, transcribe_for_review  # noqa: E402
+from src.voice import MAX_AUDIO_BYTES, VoiceUnavailableError, transcribe_for_review  # noqa: E402
 
 
 class RecordingSpeechClient:
@@ -39,6 +39,12 @@ class VoiceTests(unittest.TestCase):
             transcribe_for_review(b"", client=RecordingSpeechClient())
         with self.assertRaises(VoiceUnavailableError):
             transcribe_for_review(b"audio", client=None)
+
+    def test_oversized_recording_is_rejected_before_external_upload(self) -> None:
+        client = RecordingSpeechClient()
+        with self.assertRaises(VoiceUnavailableError):
+            transcribe_for_review(b"x" * (MAX_AUDIO_BYTES + 1), client=client)
+        self.assertEqual(client.calls, [])
 
 
 if __name__ == "__main__":
