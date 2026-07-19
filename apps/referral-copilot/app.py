@@ -89,10 +89,119 @@ STRINGS = {
 
 STEP_KEYS = ["intake", "confirm", "results"]
 
-# Landing-page copy. Only English is authored here; tx() falls back to English
-# for any language missing a key so the flow stays localized while the marketing
-# surface degrades gracefully.
-LANDING_COPY = {
+# All non-flow UI copy. tx() falls back to English per key, so a missing
+# translation degrades to English instead of raising or rendering blank.
+UI_COPY = {
+    "hi": {
+        "hero_tagline": "सही देखभाल मार्ग — <em>प्रमाण के साथ।</em>",
+        "hero_sub": "अपनी ज़रूरत सरल शब्दों में बताएं। Aven अगला कदम तय करता है और उसके पीछे का प्रमाण दिखाता है।",
+        "scroll_cue": "नीचे देखें",
+        "nav_cta": "देखें",
+        "marquee": [
+            "सही मार्ग, स्पष्ट रूप से",
+            "देखभाल, प्रमाण के साथ",
+            "अनिश्चितताओं के बारे में ईमानदार",
+            "प्रमाण जो आप देख सकें",
+        ],
+        "statement_kicker": "विचार",
+        "statement": (
+            'देखभाल की ज़रूरत बनती है <span class="dim">एक स्पष्ट अनुरोध, एक व्यावहारिक मार्ग,</span> '
+            'और हर विकल्प के पीछे का प्रमाण।'
+        ),
+        "about_eyebrow": "यह कैसे काम करता है",
+        "about_title": "देखभाल, जो प्रमाण के साथ आती है।",
+        "about_body": (
+            "देखभाल तक पहुंच की अपनी ज़रूरत सरल शब्दों में बताएं। Aven उसे एक स्पष्ट, संरचित "
+            "अनुरोध में बदलता है, फिर एक व्यावहारिक मार्ग बनाता है — हर विकल्प के पीछे का प्रमाण "
+            "दिखाते हुए और जो पुष्टि नहीं हो सकी उसके बारे में ईमानदार रहते हुए।"
+        ),
+        "about_points": [
+            ("अपने शब्दों में कहें", "अंग्रेज़ी, हिंदी या मराठी में सहज रूप से लिखें। कोई जटिल फ़ॉर्म नहीं।"),
+            ("प्रमाण देखें", "हर विकल्प दिखाता है कि क्या प्रलेखित है, क्या विरोधाभासी है, और क्या अज्ञात है।"),
+            ("अगला कदम तय करें", "यात्रा और लागत के आधार पर मार्गों की तुलना करें, फिर योजना सहेजें।"),
+        ],
+        "tiles_eyebrow": "शुरुआत चुनें",
+        "tiles_title": "आज आपको क्या चाहिए?",
+        "tiles_hint": "हर विकल्प अपना फ़ॉर्म खोलता है — आप कभी भी बदल सकते हैं।",
+        "switcher_label": "अपनी ज़रूरत के लिए फ़ॉर्म चुनें",
+        "specifics": "विवरण",
+        "location_label": "आप कहां से शुरू कर रहे हैं?",
+        "location_ph": "शहर, ज़िला या पिनकोड",
+        "extra_label": "और कुछ जो हमें जानना चाहिए? (वैकल्पिक)",
+        "extra_ph": "उदाहरण: डॉक्टर ने हृदय रोग विशेषज्ञ से मिलने को कहा है और मैं दूर यात्रा नहीं कर सकता।",
+        "prefs": "आपकी प्राथमिकताएं",
+        "prefs_why": "हम यह क्यों पूछते हैं? यात्रा और बजट प्राथमिकताएं मार्गों का क्रम बदलती हैं, देखभाल की गुणवत्ता नहीं।",
+        "urgency_label": "आपको कितनी जल्दी कार्रवाई करनी है?",
+        "travel_label": "आप कितनी दूर यात्रा कर सकते हैं?",
+        "budget_label": "लागत कम करना कितना महत्वपूर्ण है?",
+        "facility_label": "सुविधा प्राथमिकता",
+        "language_label": "पसंदीदा भाषा (वैकल्पिक)",
+        "submit": "देखें Aven ने क्या समझा",
+        "confirm_title": "योजना बनाने से पहले पुष्टि करें",
+        "confirm_edit": "अनुरोध संपादित करें",
+        "confirm_go": "पुष्टि करें और मार्ग खोजें",
+        "results_title": "सर्वोत्तम अगला कदम",
+        "scale": {
+            "Routine": "सामान्य", "Soon": "जल्द", "Urgent": "तत्काल",
+            "Low": "कम", "Medium": "मध्यम", "High": "अधिक",
+            "Either": "कोई भी", "Public": "सरकारी", "Private": "निजी",
+        },
+    },
+    "mr": {
+        "hero_tagline": "योग्य काळजी मार्ग — <em>पुराव्यासह.</em>",
+        "hero_sub": "तुमची गरज सोप्या शब्दांत सांगा. Aven पुढील पाऊल ठरवते आणि त्यामागील पुरावा दाखवते.",
+        "scroll_cue": "खाली पहा",
+        "nav_cta": "पहा",
+        "marquee": [
+            "योग्य मार्ग, स्पष्टपणे",
+            "काळजी, पुराव्यासह",
+            "अनिश्चिततेबद्दल प्रामाणिक",
+            "पुरावा जो तुम्ही पाहू शकता",
+        ],
+        "statement_kicker": "कल्पना",
+        "statement": (
+            'काळजीची गरज बनते <span class="dim">एक स्पष्ट विनंती, एक कृतीयोग्य मार्ग,</span> '
+            'आणि प्रत्येक पर्यायामागील पुरावा.'
+        ),
+        "about_eyebrow": "हे कसे कार्य करते",
+        "about_title": "काळजी, जी पुराव्यासह येते.",
+        "about_body": (
+            "काळजी मिळवण्याची तुमची गरज सोप्या शब्दांत सांगा. Aven ती स्पष्ट, संरचित विनंतीमध्ये "
+            "बदलते, नंतर कृतीयोग्य मार्ग ठरवते — प्रत्येक पर्यायामागील पुरावा दाखवत आणि ज्याची "
+            "पुष्टी होऊ शकली नाही त्याबद्दल प्रामाणिक राहत."
+        ),
+        "about_points": [
+            ("तुमच्या शब्दांत सांगा", "इंग्रजी, हिंदी किंवा मराठीत सहजपणे लिहा. गुंतागुंतीचे फॉर्म नाहीत."),
+            ("पुरावा पहा", "प्रत्येक पर्याय दाखवतो काय नोंदवलेले आहे, काय विसंगत आहे आणि काय अज्ञात आहे."),
+            ("पुढील पाऊल ठरवा", "प्रवास आणि खर्चानुसार मार्गांची तुलना करा, नंतर योजना जतन करा."),
+        ],
+        "tiles_eyebrow": "सुरुवात निवडा",
+        "tiles_title": "आज तुम्हाला काय हवे आहे?",
+        "tiles_hint": "प्रत्येक पर्याय स्वतःचा फॉर्म उघडतो — तुम्ही कधीही बदलू शकता.",
+        "switcher_label": "तुमच्या गरजेसाठी फॉर्म निवडा",
+        "specifics": "तपशील",
+        "location_label": "तुम्ही कुठून सुरुवात करत आहात?",
+        "location_ph": "शहर, जिल्हा किंवा पिनकोड",
+        "extra_label": "आणखी काही आम्हाला माहीत असावे? (ऐच्छिक)",
+        "extra_ph": "उदाहरण: डॉक्टरांनी हृदयरोग तज्ज्ञांकडे जाण्यास सांगितले आहे आणि मी दूर प्रवास करू शकत नाही.",
+        "prefs": "तुमच्या पसंती",
+        "prefs_why": "आम्ही हे का विचारतो? प्रवास आणि बजेट पसंती मार्गांचा क्रम बदलतात, काळजीची गुणवत्ता नाही.",
+        "urgency_label": "तुम्हाला किती लवकर कृती करायची आहे?",
+        "travel_label": "तुम्ही किती दूर प्रवास करू शकता?",
+        "budget_label": "खर्च कमी करणे किती महत्त्वाचे आहे?",
+        "facility_label": "सुविधा पसंती",
+        "language_label": "पसंतीची भाषा (ऐच्छिक)",
+        "submit": "Aven ने काय समजले ते पहा",
+        "confirm_title": "नियोजनापूर्वी पुष्टी करा",
+        "confirm_edit": "विनंती संपादित करा",
+        "confirm_go": "पुष्टी करा आणि मार्ग शोधा",
+        "results_title": "सर्वोत्तम पुढील पाऊल",
+        "scale": {
+            "Routine": "नियमित", "Soon": "लवकर", "Urgent": "तातडीचे",
+            "Low": "कमी", "Medium": "मध्यम", "High": "जास्त",
+            "Either": "कोणतेही", "Public": "सरकारी", "Private": "खाजगी",
+        },
+    },
     "en": {
         "hero_tagline": "The right care route — <em>with its receipts.</em>",
         "hero_sub": "Describe a care need in plain words. Aven plans the next step and shows the evidence behind it.",
@@ -124,6 +233,27 @@ LANDING_COPY = {
         "tiles_eyebrow": "Choose a starting point",
         "tiles_title": "What do you need today?",
         "tiles_hint": "Each path opens its own form — you can switch between them anytime.",
+        "switcher_label": "Choose the form for your need",
+        "specifics": "The specifics",
+        "location_label": "Where are you starting from?",
+        "location_ph": "City, district, or pincode",
+        "extra_label": "Anything else we should know? (optional)",
+        "extra_ph": "Example: My doctor said I need a cardiology visit and I cannot travel far.",
+        "prefs": "Your preferences",
+        "prefs_why": "Why do we ask this? Travel and budget preferences change route ordering, not care quality.",
+        "urgency_label": "How soon do you need to act?",
+        "travel_label": "How far can you travel?",
+        "budget_label": "How important is minimizing cost?",
+        "facility_label": "Facility preference",
+        "language_label": "Preferred language (optional)",
+        "submit": "Review what Aven understood",
+        "confirm_title": "Please confirm before we plan",
+        "confirm_edit": "Edit request",
+        "confirm_go": "Confirm and find routes",
+        "results_title": "Best next step",
+        # Identity map: scale() falls back to the English value, which is also the
+        # canonical value stored on the request.
+        "scale": {},
     }
 }
 
@@ -152,15 +282,87 @@ FEATURE_TILES = [
 
 TASK_META = {tile["key"]: tile for tile in FEATURE_TILES}
 
+# Per-language tile copy, keyed by care task. Icons and keys stay in FEATURE_TILES
+# because they are not language-dependent — only title/desc/detail_label are.
+TILE_COPY = {
+    "hi": {
+        "known_referral": ("रेफरल या प्रक्रिया",
+                           "डॉक्टर द्वारा बताई गई विशेषज्ञ जांच या प्रक्रिया के लिए मार्ग बनाएं।",
+                           "आपके डॉक्टर ने किसके लिए रेफर किया?"),
+        "refill": ("दवा दोबारा लेना",
+                   "पर्चा दोबारा भरवाने या दवा की दुकान तक पहुंचने की जगह खोजें।",
+                   "आपको कौन सी दवा दोबारा चाहिए?"),
+        "lab": ("लैब या रक्त जांच",
+                "चिकित्सक द्वारा बताई गई जांच या रक्त नमूने के लिए सुविधा खोजें।",
+                "कौन सी जांच या रक्त नमूना बताया गया?"),
+        "vaccination": ("टीकाकरण",
+                        "टीका या नियमित प्रतिरक्षण कहां मिलेगा, यह खोजें।",
+                        "आप किस टीके या प्रतिरक्षण की योजना बना रहे हैं?"),
+        "follow_up": ("अनुवर्ती प्रश्न",
+                      "अपॉइंटमेंट के बारे में सुविधा या डॉक्टर से दोबारा संपर्क करें।",
+                      "आप किस सुविधा या डॉक्टर तक पहुंचना चाहते हैं?"),
+        "symptom_first": ("मुझे नहीं पता क्या चाहिए",
+                          "बात करें और सुरक्षित अगला कदम तय करें। यह निदान नहीं है।",
+                          "आज आपको क्या चिंता है?"),
+    },
+    "mr": {
+        "known_referral": ("संदर्भ किंवा प्रक्रिया",
+                           "डॉक्टरांनी सुचवलेल्या तज्ज्ञ भेटीसाठी किंवा प्रक्रियेसाठी मार्ग ठरवा.",
+                           "तुमच्या डॉक्टरांनी कशासाठी संदर्भ दिला?"),
+        "refill": ("औषध पुन्हा घेणे",
+                   "प्रिस्क्रिप्शन पुन्हा भरण्यासाठी किंवा औषधालयापर्यंत पोहोचण्यासाठी जागा शोधा.",
+                   "तुम्हाला कोणते औषध पुन्हा हवे आहे?"),
+        "lab": ("प्रयोगशाळा किंवा रक्त तपासणी",
+                "डॉक्टरांनी सांगितलेल्या तपासणीसाठी किंवा रक्त नमुन्यासाठी सुविधा शोधा.",
+                "कोणती तपासणी किंवा रक्त नमुना सांगितला होता?"),
+        "vaccination": ("लसीकरण",
+                        "लस किंवा नियमित लसीकरण कुठे मिळेल ते शोधा.",
+                        "तुम्ही कोणत्या लसीचे नियोजन करत आहात?"),
+        "follow_up": ("पाठपुरावा प्रश्न",
+                      "अपॉइंटमेंटबद्दल सुविधा किंवा डॉक्टरांशी पुन्हा संपर्क साधा.",
+                      "तुम्ही कोणत्या सुविधेशी किंवा डॉक्टरांशी संपर्क साधू इच्छिता?"),
+        "symptom_first": ("मला काय हवे ते माहीत नाही",
+                          "चर्चा करा आणि सुरक्षित पुढील पाऊल ठरवा. हे निदान नाही.",
+                          "आज तुम्हाला कशाची चिंता आहे?"),
+    },
+}
+
+
+def ui_language() -> str:
+    return st.session_state.get("language", "en")
+
 
 def t() -> dict:
-    return STRINGS[st.session_state.get("language", "en")]
+    return STRINGS[ui_language()]
 
 
 def tx(key: str) -> object:
-    """Landing copy lookup with English fallback for untranslated keys."""
-    language = st.session_state.get("language", "en")
-    return LANDING_COPY.get(language, {}).get(key, LANDING_COPY["en"][key])
+    """UI copy lookup with per-key English fallback for untranslated keys."""
+    return UI_COPY.get(ui_language(), {}).get(key, UI_COPY["en"][key])
+
+
+def scale_labels():
+    """Return a format_func that labels canonical option values in the current
+    language. The language is bound now rather than read on each call, so the
+    function stays pure once built — Streamlit and its test harness both invoke
+    format_func outside the render context, where ambient state is unreliable.
+
+    Option *values* are never translated: they are what the request stores and
+    what domain validation reads.
+    """
+    table = UI_COPY.get(ui_language(), {}).get("scale", {})
+    return lambda value: table.get(value, value)
+
+
+def tile_copy(care_task: str) -> dict:
+    """Tile title/desc/detail_label in the current language, falling back to the
+    English text authored on FEATURE_TILES."""
+    meta = TASK_META[care_task]
+    translated = TILE_COPY.get(ui_language(), {}).get(care_task)
+    if not translated:
+        return meta
+    title, desc, detail_label = translated
+    return {**meta, "title": title, "desc": desc, "detail_label": detail_label}
 
 
 def initialize_state() -> None:
@@ -405,10 +607,10 @@ def show_tiles() -> None:
     # the button as a large, hoverable card while keeping full session state.
     # (Saved plans are reachable from the header and profile, not this grid.)
     for row_start in range(0, len(FEATURE_TILES), 3):
-        row = FEATURE_TILES[row_start:row_start + 3]
+        row = [tile_copy(t["key"]) for t in FEATURE_TILES[row_start:row_start + 3]]
         cols = st.columns(3)
         for col, tile in zip(cols, row):
-            label = f"{tile['icon']}\n\n**{tile['title']}**\n\n{tile['desc']}\n\nOpen form →"
+            label = f"{tile['icon']}\n\n**{tile['title']}**\n\n{tile['desc']}\n\n{tx('nav_cta')} →"
             if col.button(label, key=f"tile_{tile['key']}", use_container_width=True):
                 go_to_intake(tile["key"])
 
@@ -431,9 +633,9 @@ def show_flow_header() -> None:
 def show_task_switcher(active: str) -> None:
     """A row of task pills so it is always clear which form you are in and that
     other forms exist — you can switch without going back to the landing page."""
-    st.markdown('<div class="aven-switcher-label">Choose the form for your need</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="aven-switcher-label">{tx("switcher_label")}</div>', unsafe_allow_html=True)
     cols = st.columns(len(FEATURE_TILES))
-    for col, tile in zip(cols, FEATURE_TILES):
+    for col, tile in zip(cols, (tile_copy(t["key"]) for t in FEATURE_TILES)):
         is_active = tile["key"] == active
         if col.button(
             f"{tile['icon']} {tile['title']}",
@@ -452,7 +654,7 @@ def show_intake() -> None:
     if preset in CARE_TASKS:
         st.session_state.care_task = preset
     care_task = st.session_state.setdefault("care_task", "known_referral")
-    meta = TASK_META[care_task]
+    meta = tile_copy(care_task)
 
     show_task_switcher(care_task)
 
@@ -478,25 +680,30 @@ def show_intake() -> None:
 
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
     with st.form("intake_form"):
-        st.markdown('<div class="aven-section-title">The specifics</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="aven-section-title">{tx("specifics")}</div>', unsafe_allow_html=True)
         detail = st.text_input(meta["detail_label"], placeholder=next_question(care_task))
-        location = st.text_input("Where are you starting from?", placeholder="City, district, or pincode")
-        message = st.text_area(
-            "Anything else we should know? (optional)",
-            placeholder="Example: My doctor said I need a cardiology visit and I cannot travel far.",
-        )
+        location = st.text_input(tx("location_label"), placeholder=tx("location_ph"))
+        message = st.text_area(tx("extra_label"), placeholder=tx("extra_ph"))
 
-        st.markdown('<div class="aven-section-title">Your preferences</div>', unsafe_allow_html=True)
-        st.caption("Why do we ask this? Travel and budget preferences change route ordering, not care quality.")
+        st.markdown(f'<div class="aven-section-title">{tx("prefs")}</div>', unsafe_allow_html=True)
+        st.caption(tx("prefs_why"))
         pref_left, pref_right = st.columns(2)
+        # Option values stay English: they are stored on the request and validated
+        # by the domain. Only their displayed labels are localized, so switching
+        # language mid-form relabels the controls without invalidating the answers.
+        label_for = scale_labels()
         with pref_left:
-            urgency = st.select_slider("How soon do you need to act?", options=["Routine", "Soon", "Urgent"], value="Soon")
-            travel = st.select_slider("How far can you travel?", options=["Low", "Medium", "High"], value="Medium")
+            urgency = st.select_slider(tx("urgency_label"), options=["Routine", "Soon", "Urgent"],
+                                       value="Soon", format_func=label_for)
+            travel = st.select_slider(tx("travel_label"), options=["Low", "Medium", "High"],
+                                      value="Medium", format_func=label_for)
         with pref_right:
-            budget = st.select_slider("How important is minimizing cost?", options=["Low", "Medium", "High"], value="High")
-            preference = st.radio("Facility preference", options=["Either", "Public", "Private"], horizontal=True)
-        language = st.text_input("Preferred language (optional)")
-        submitted = st.form_submit_button("Review what Aven understood", type="primary", use_container_width=True)
+            budget = st.select_slider(tx("budget_label"), options=["Low", "Medium", "High"],
+                                      value="High", format_func=label_for)
+            preference = st.radio(tx("facility_label"), options=["Either", "Public", "Private"],
+                                  horizontal=True, format_func=label_for)
+        language = st.text_input(tx("language_label"))
+        submitted = st.form_submit_button(tx("submit"), type="primary", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted:
@@ -534,7 +741,7 @@ def show_emergency_panel() -> None:
 def show_confirmation() -> None:
     request = st.session_state.request
     st.markdown('<div class="aven-reveal">', unsafe_allow_html=True)
-    st.markdown('<div class="aven-section-title">Please confirm before we plan</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="aven-section-title">{tx("confirm_title")}</div>', unsafe_allow_html=True)
     st.markdown(
         f"> You are looking for **{request['capability']}** from **{request['location']}**, "
         f"**{request['urgency']}**. You prefer **{request['travel_tolerance']} travel burden** "
@@ -545,11 +752,11 @@ def show_confirmation() -> None:
     st.caption("We use your confirmed request to compare documented facility options. We do not infer price, availability, or eligibility.")
     left, right = st.columns(2)
     with left:
-        if st.button("Edit request", use_container_width=True):
+        if st.button(tx("confirm_edit"), use_container_width=True):
             st.session_state.stage = "intake"
             st.rerun()
     with right:
-        if st.button("Confirm and find routes", type="primary", use_container_width=True):
+        if st.button(tx("confirm_go"), type="primary", use_container_width=True):
             st.session_state.options = backend.plan_routes(request)
             profiles.add_history(current_profile(), request)
             persist_profile()
@@ -685,7 +892,7 @@ def show_travel_truth() -> None:
 
 def show_results() -> None:
     request = st.session_state.request
-    st.markdown('<div class="aven-section-title">Best next step</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="aven-section-title">{tx("results_title")}</div>', unsafe_allow_html=True)
     st.caption(f"For: {request['capability']} · Starting from: {request['location']}")
 
     if backend.backend_mode() == "demo":

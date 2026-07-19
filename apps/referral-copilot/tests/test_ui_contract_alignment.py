@@ -57,6 +57,35 @@ class LanguageTests(unittest.TestCase):
         self.assertIsNotNone(selection.fallback_message)
 
 
+class CanonicalValueTests(unittest.TestCase):
+    """Localization must relabel controls without changing what they return.
+
+    The domain validates urgency/travel/budget/facility against English literals
+    ({"routine","soon","urgent"}, ...). If a translated label ever reaches the
+    request, validate_confirmed_intake rejects every non-English submission.
+    """
+
+    def test_option_labels_translate_but_values_stay_canonical(self):
+        app = _app_module()
+        canonical = ["Routine", "Soon", "Urgent", "Low", "Medium", "High",
+                     "Either", "Public", "Private"]
+        for code in app.LANGUAGES:
+            table = app.UI_COPY.get(code, {}).get("scale", {})
+            self.assertEqual(
+                set(table) - set(canonical),
+                set(),
+                f"{code} labels a value the form never offers",
+            )
+
+    def test_untranslated_values_fall_back_to_the_canonical_label(self):
+        app = _app_module()
+        app.st.session_state.clear()
+        app.st.session_state["language"] = "en"
+        label_for = app.scale_labels()
+        self.assertEqual(label_for("Soon"), "Soon")
+        self.assertEqual(label_for("Unmapped"), "Unmapped")
+
+
 class TravelModeTests(unittest.TestCase):
     def test_every_advertised_travel_mode_is_valid_for_the_facade(self):
         app = _app_module()
