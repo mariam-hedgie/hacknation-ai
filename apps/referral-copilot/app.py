@@ -86,18 +86,27 @@ FEEDBACK_OPTIONS = {
 
 STRINGS = {
     "en": {
+        "tagline": "The right care route, with proof.",
         "boundary": "Aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
+        "promise": "Tell us what you need. We will help you plan the next step with evidence from facility records.",
         "steps": ["Tell us", "Confirm", "Your plan"],
+        "vitals": "Connected across facility networks",
         "eyebrow": "Care Navigation · Evidence-Backed",
     },
     "hi": {
+        "tagline": "सही देखभाल मार्ग, प्रमाण के साथ।",
         "boundary": "Aven देखभाल तक पहुंच की योजना बनाने में मदद करता है — यह निदान नहीं करता, दवा नहीं लिखता, कीमतों का वादा नहीं करता, लाइव उपलब्धता नहीं दिखाता, और न ही आपातकालीन देखभाल की जगह लेता है।",
+        "promise": "हमें बताएं आपको क्या चाहिए। हम सुविधा रिकॉर्ड के प्रमाण के साथ अगला कदम बनाने में मदद करेंगे।",
         "steps": ["बताएं", "पुष्टि करें", "आपकी योजना"],
+        "vitals": "सुविधा नेटवर्क में सक्रिय रूप से जुड़ा हुआ",
         "eyebrow": "देखभाल मार्गदर्शन · प्रमाण-आधारित",
     },
     "mr": {
+        "tagline": "योग्य काळजी मार्ग, पुराव्यासह.",
         "boundary": "Aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते — हे निदान करत नाही, औषध लिहून देत नाही, किमतींचे आश्वासन देत नाही, थेट उपलब्धता दाखवत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
+        "promise": "तुम्हाला काय हवे आहे ते सांगा. आम्ही सुविधा नोंदींच्या पुराव्यासह पुढील पाऊल ठरवण्यास मदत करू.",
         "steps": ["सांगा", "पुष्टी करा", "तुमची योजना"],
+        "vitals": "सुविधा नेटवर्कमध्ये सक्रियपणे जोडलेले",
         "eyebrow": "काळजी मार्गदर्शन · पुरावा-आधारित",
     },
 }

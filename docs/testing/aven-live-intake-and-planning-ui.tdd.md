@@ -14,9 +14,10 @@ did not yet exist.
 The implementation adds those boundaries without making live service claims
 when a key or provider is absent.
 
-- `python3 -m unittest discover -s apps/referral-copilot/tests -q`: 167 passed.
+- `python3 -m unittest discover -s apps/referral-copilot/tests -q`: 195 passed
+  after the non-Clara Genie and evidence-pipeline integration.
 - `coverage run --source=apps/referral-copilot/src ...`: 84% total source
-  coverage.
+  coverage before that merge; the combined source suite reports 86%.
 - `python3 -m compileall -q apps/referral-copilot`: passed.
 - Synthetic OpenAI Responses call: passed and returned a review-required
   structured draft.
