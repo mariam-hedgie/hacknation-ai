@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppState, blockFacility, getRating, isBlocked } from "../state/AppState";
+import { useAppState, blockFacility, isBlocked } from "../state/AppState";
 import { STEP_KEYS, STRINGS, FEEDBACK_OPTIONS, OPTION_ICONS } from "../i18n/copy";
 import { api, type PlanOption, type ServiceStatus, type TravelCapability } from "../api";
 import { Stepper } from "../components/Stepper";
@@ -16,7 +16,7 @@ const TRAVEL_MODES = ["walk", "bus", "train", "car", "taxi"];
 
 export function Results() {
   const navigate = useNavigate();
-  const { language, draftRequest, planResponse, profile, persistProfile, saveOption, savedPlans, feedback, setFeedback } =
+  const { language, draftRequest, planResponse, profile, persistProfile, saveOption, savedPlans, feedback, setFeedback, persistenceMode, persistenceError } =
     useAppState();
   const strings = STRINGS[language];
   const [status, setStatus] = useState<ServiceStatus | null>(null);
@@ -121,11 +121,13 @@ export function Results() {
               key={option.facility + index}
               index={index}
               option={option}
-              rating={getRating(profile, option.facility)}
+              request={draftRequest}
+              rating={null}
               isBlocked={false}
-              onSave={() => {
-                saveOption(option, draftRequest.care_task);
-                setSavedMsg(true);
+              onSave={async (note) => {
+                const saved = await saveOption(option, draftRequest.care_task, note);
+                setSavedMsg(saved);
+                return saved;
               }}
               onBlock={() => persistProfile(blockFacility(profile, option.facility))}
             />
@@ -146,7 +148,8 @@ export function Results() {
             </details>
           )}
 
-          {savedMsg && <div className="alert alert-success">Saved — reopen it from My plans.</div>}
+          {savedMsg && <div className="alert alert-success">Saved — reopen it from My plans. {persistenceMode === "lakebase" ? "Lakebase confirmed the write." : "This is local-demo storage only."}</div>}
+          {persistenceError && <div className="alert alert-warning">{persistenceError}</div>}
 
           <div className="section-title" style={{ margin: "2rem 0 0.8rem" }}>
             Was this plan useful?
@@ -167,7 +170,7 @@ export function Results() {
           </div>
           <button
             className="btn"
-            onClick={() => setFeedback(FEEDBACK_OPTIONS[feedbackLabel], feedbackNote)}
+            onClick={() => void setFeedback(FEEDBACK_OPTIONS[feedbackLabel], feedbackNote)}
           >
             Save feedback
           </button>

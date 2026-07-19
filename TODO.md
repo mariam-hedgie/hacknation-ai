@@ -1,16 +1,26 @@
 # Aven — Integration TODO
 
+> **2026-07-19 audit notice:** workspace/table/quota observations below are a
+> historical handoff and were not reverified during the official-PDF audit.
+> Do not treat them as current proof. The authoritative current gates are
+> [`docs/compliance/data-legend-official-brief-audit.md`](docs/compliance/data-legend-official-brief-audit.md)
+> and [`docs/compliance/final-submission-gate.md`](docs/compliance/final-submission-gate.md).
+> React/FastAPI authenticated Lakebase wiring is now complete in the repository;
+> live Free Edition, challenge-data, Vector Search, and cross-session proof are
+> still open.
+
 Track: **Referral Copilot** (Data Legend / Databricks challenge).
 
 **State of play (2026-07-19, reviewed against the working tree):** the code is in
 much better shape than the previous revision of this file claimed. The whole
 evidence pipeline — retrieval, mapping, ranking, tracing, Genie — is *written and
-tested* (164 tests pass). What is missing is not code, it is **configuration and
+tested* (the current count is recorded in the compliance audit). What is missing is **live configuration and
 a working warehouse**: nothing is actually running against live data, and
 `backend_mode()` returns `demo` on every machine today.
 
-The frontend calls **only** `apps/referral-copilot/src/backend/service.py`. Never
-call a Databricks tool from `app.py` directly.
+The React frontend calls the FastAPI boundary, which delegates planning to
+`apps/referral-copilot/src/backend/service.py`. Never call a Databricks tool
+directly from the browser.
 
 ---
 
@@ -52,7 +62,7 @@ Two consequences worth deciding explicitly:
   sample to a committed fixture (#4) so a mid-presentation quota wall degrades
   to seeded data instead of breaking the story.
 
-### Blocker #1b — the flattening drops the columns the ranking logic needs
+### Resolved in repo — flattening now preserves ranking and receipt columns
 
 This is new, and it invalidates a "wontfix" the previous TODO had recorded.
 
@@ -77,9 +87,12 @@ Consequences:
   `domain.py`, and the live path cannot honor it** because `operatorTypeId`
   never reaches the app. Same for `facility_type=None` in `agent_bricks`.
 
-Fix: carry `latitude`, `longitude`, `address_city`, `facilityTypeId`,
-`operatorTypeId` through into `facilities_searchable` (join back to raw on
-`unique_id`), then populate them in `agent_bricks._assess_row`.
+Implemented: `flatten_data.py` carries coordinates, city, facility/operator
+type, and original description/capability/procedure/equipment fields into
+`facilities_searchable`. `agent_bricks` validates evidence against those raw
+fields, emits row/column receipts, validates operator type, and calculates an
+honestly labelled straight-line distance for supported demo cities. The
+corrected table and Vector Search index still need to be rebuilt live.
 
 ### Blocker #1c — the raw dataset has column-misaligned rows
 
@@ -106,32 +119,13 @@ to surface — do not silently prefer one. It also means distance ranking should
 be derived from coordinates and labelled as such, with the city mismatch shown
 as a conflict rather than resolved behind the user's back.
 
-### Blocker #2 — `has_agent` gates a pure mapper on an endpoint that isn't needed
+### Resolved in repo — live mode no longer requires a phantom serving endpoint
 
 `AgentBricksClient.assess_claims()` is now a **pure mapper** — no model call, no
-serving endpoint (the extraction happened upstream in the pipeline). But:
-
-```python
-# agent_bricks.py
-def available(self) -> bool:
-    return self._config.has_agent      # -> bool(AVEN_SERVING_ENDPOINT)
-```
-
-and `assess_claims` returns `None` when `available()` is False, which makes
-`_live_plan_routes` fall back to demo. `BackendConfig.mode()` has the same
-phantom requirement:
-
-```python
-return "live" if (self.has_vector_search and self.has_agent) else "demo"
-```
-
-**So even with retrieval fully configured, the live path cannot turn on without
-setting `AVEN_SERVING_ENDPOINT` to a value nothing reads.** This is the single
-cheapest fix in the repo and it is currently a hard blocker on `live`.
-
-Fix: drop the gate from the mapper (`available()` → `True`, or delete the check),
-and redefine `mode()` as "live once retrieval is configured". Re-gate on
-`has_agent` only if/when the Validator (#7) actually calls a served model.
+serving endpoint (the extraction happened upstream in the pipeline).
+`available()` now reflects that, and `BackendConfig.mode()` becomes live when a
+complete AI Search endpoint/index pair is configured. Tests cover both complete
+and partial configurations.
 
 ### Blocker #3 — retrieval is not configured, and the SQL path doesn't exist
 
@@ -209,17 +203,14 @@ exactly backwards relative to what's implemented.
 
 ### P1 — makes the demo credible
 
-6. **Uncomment `mlflow>=3.0` in `apps/referral-copilot/requirements.txt`.**
-   `tracing.py` is fully written and every pipeline stage already opens a span
-   with inputs/outputs — but the dependency is still commented out, so the trace
-   view is a **guaranteed no-op** even with `AVEN_MLFLOW_EXPERIMENT` set. One
-   line unlocks brief stretch #1, which the rubric explicitly rewards.
+6. **MLflow 3 dependency and trace seams — done in repo.** Every pipeline stage
+   opens bounded spans and the deployment installs MLflow 3. A configured live
+   experiment and visible trace remain workspace proof items.
 
-7. **Validator / self-correction** (brief stretch #2) — re-verify each extracted
-   span against the facility's raw record inside `agent_bricks`. Nothing does
-   this today (documented limit in `enrichment._claim_evidence` and in
-   `agent_bricks`'s module docstring). This is the one place a served model is
-   genuinely warranted — and it would give `AVEN_SERVING_ENDPOINT` a real job.
+7. **Literal validator — done deterministically.** `agent_bricks` re-verifies
+   every extracted span against the preserved raw field and fails closed when a
+   row/column receipt cannot be produced. A served model is not needed for this
+   safety check.
 
 8. **Native review of the machine-drafted translations.** `localization.py`
    calls them *approved*; they are not. Highest priority: the five
@@ -229,11 +220,10 @@ exactly backwards relative to what's implemented.
    saved-plans, and blocklist screens (`app.py` around `show_account_control`,
    `show_profile`, blocklist/rating captions).
 
-9. **Resolve the auth/persistence conflict.** `auth.py` (pseudonymous owner ID,
-   never stores email) vs `app.py::do_login` (stores name + email) vs
-   `SessionLocalPlanStore` vs `src/profiles.py`. See
-   `docs/security/login-and-persistence-audit.md`. **Team decision needed** —
-   the one item nobody can unblock alone.
+9. **Auth/persistence conflict — resolved in the React path.** The production
+   API uses Databricks proxy identity, a pseudonymous owner ID, minimized
+   payloads, and owner-scoped Lakebase queries. The legacy Streamlit profile
+   adapter is not part of the deployed React path. Live two-user proof remains.
 
 10. **Fix or delete root `database.py`.** `build_query` is broken two ways:
     the quoting is malformed — `"', '".join(...)` interpolated bare produces
@@ -245,24 +235,20 @@ exactly backwards relative to what's implemented.
 
 ### P2 — if time allows
 
-11. **Lakebase** (`lakebase.py`) — still a pass-through to local JSON; both
-    methods are `if self.available(): pass`. UPSERT/read profile keyed by
-    identity, keep local JSON as an offline mirror.
+11. **Lakebase repository wiring — done.** `lakebase.py` now consumes managed
+    resource coordinates, generates rotating OAuth DB credentials, validates or
+    creates the safe schema, and returns an owner-scoped store. The remaining
+    requirement is deployment evidence, not another local profile mirror.
 12. **Genie is already done** — `genie.py` is a complete implementation
     (conversation start/continue, SQL + rows extraction, returns `None` on any
     failure). It only needs `AVEN_GENIE_SPACE_ID` set and a Genie space created
     to light up. No code work. *Surface it in the UI* — nothing calls
     `service.ask_data_question()` from `app.py` yet, so a finished feature is
     currently invisible to judges. Cheap win.
-13. **Distance ranking — promoted, no longer blocked.** Coordinates exist for
-    98.8% of raw rows (Blocker #1b); they were dropped in flattening, not
-    absent. Once carried through, populate `distance_km` in
-    `agent_bricks._assess_row` (haversine against the requested location) and
-    drop the "Distance not documented" fallback string in `service.py` for rows
-    that do have coordinates. Show the city/coordinate conflict (Blocker #1c)
-    rather than silently trusting either. Similarly populate `facility_type`
-    from `facilityTypeId` / `operatorTypeId` so `facility_preference` actually
-    influences the live ranking.
+13. **Distance/type wiring — done for the golden path.** Coordinates and
+    validated operator type now reach ranking; known demo cities use a labelled
+    straight-line distance and unknown origins remain `not documented`. Live
+    rebuild and city/coordinate conflict review are still required.
 14. **Emergency question is not universal.** The intake panel short-circuits on
     its own checkbox and the urgency slider only offers Routine/Soon/Urgent, so
     `urgency == "emergency"` cannot be selected; the `ui_contract` emergency
@@ -317,14 +303,14 @@ key `unique_id`) is the schema of record. Model A (`facilities_normalized` /
 
 | Concern | File | Status |
 |---|---|---|
-| Config from env | `src/backend/config.py` | ⚠️ `mode()` has the phantom `has_agent` gate (#1 above) |
+| Config from env | `src/backend/config.py` | ✅ Vector Search alone activates live evidence mode |
 | Service facade | `src/backend/service.py` | ✅ live path + demo fallback + spans |
 | Vector Search | `src/backend/vector_search.py` | ✅ code done; ⛔ index/env not configured |
 | SQL retrieval | `src/backend/sql_search.py` | ⛔ **does not exist** — see P0.2 |
-| Agent Bricks | `src/backend/agent_bricks.py` | ✅ mapper done; ⚠️ gated on a phantom endpoint |
+| Agent Bricks | `src/backend/agent_bricks.py` | ✅ deterministic raw-receipt validator/mapper |
 | Genie | `src/backend/genie.py` | ✅ done; not surfaced in the UI |
 | MLflow 3 tracing | `src/backend/tracing.py` | ✅ done; dep commented out |
-| Lakebase | `src/backend/lakebase.py` | ⛔ still local-JSON pass-through |
+| Lakebase | `src/backend/lakebase.py` | ✅ secure code path; ⛔ live resource/cross-session proof |
 | Domain rules / ranking | `src/domain.py` | ✅ done (pure) |
 | Databricks SQL repo | `src/databricks_adapter.py` | 🅿️ Model A, parked, off the live path |
 | Seeded demo data | `src/demo_adapter.py` | ✅ fallback |
@@ -347,7 +333,7 @@ AVEN_VECTOR_SEARCH_ENDPOINT    # Mosaic AI Vector Search  ⛔ commented out
 AVEN_VECTOR_SEARCH_INDEX       # index over facilities_searchable  ⛔ commented out
 AVEN_SERVING_ENDPOINT          # only needed once the Validator (#7) lands
 AVEN_GENIE_SPACE_ID            # Genie space              ⛔ unset; code is ready
-AVEN_LAKEBASE_URL              # Lakebase Postgres        ⛔ unset
+ENDPOINT_NAME / PGHOST / PGDATABASE / PGUSER  # injected by attached Lakebase resource
 AVEN_MLFLOW_EXPERIMENT         # MLflow experiment path   ⛔ unset
 ```
 
@@ -365,7 +351,8 @@ they must not become the app's auth path.
 
 ## Deploy
 
-- App entry: `apps/referral-copilot/app.py`; deploy config: `app.yaml`.
+- App entry: `apps/referral-copilot/run_app.py`; React build entry:
+  `apps/referral-copilot/package.json`; deploy config: `app.yaml`.
 - Uncomment `mlflow` in `apps/referral-copilot/requirements.txt` (see #6).
   Must run on **Databricks Free Edition** — mind the daily quota (#1).
 - Secrets/resources come from the Databricks App, not source. Do not commit
@@ -374,7 +361,9 @@ they must not become the app's auth path.
 ## Validation
 
 ```bash
-python -m unittest discover -s apps/referral-copilot/tests   # 164 tests, green
+python -m unittest discover -s apps/referral-copilot/tests
 python -m compileall -q apps/referral-copilot
+npm test
+npm --prefix apps/referral-copilot run build
 npm run check:elevenlabs
 ```

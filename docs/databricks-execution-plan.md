@@ -41,15 +41,17 @@ and [deployment guide](https://docs.databricks.com/aws/en/dev-tools/databricks-a
 
 ## UI and code decision
 
-For this hackathon, use a thin **Python + Streamlit or Gradio** Databricks App.
-Choose whichever official template the team gets deployed first; do not add a
-custom React/FastAPI stack unless a team member has already deployed it in
-Databricks Apps.
+The selected application is a thin **React + FastAPI** Databricks App. The app
+root `package.json` builds the React workspace during deployment, and
+`run_app.py` serves both the static build and API on `DATABRICKS_APP_PORT`.
+Keep ranking, evidence validation, authentication, and persistence server-side.
 
 ```text
 apps/referral-copilot/
-  app.py
   app.yaml
+  package.json           # Databricks build entrypoint
+  run_app.py             # FastAPI production host
+  frontend/              # React patient-facing UI
   requirements.txt
   src/intake.py          # task classification and confirmation card
   src/evidence.py        # receipt assembly
@@ -208,8 +210,8 @@ only if the data supports that relationship. It must never invent a price.
 
 ## Phase 4: persistence
 
-Attach Lakebase as a Databricks App resource, if available, for interactive
-state:
+Attach Lakebase Autoscaling as the `postgres` Databricks App resource for
+interactive state:
 
 ```text
 saved_care_plans
@@ -218,9 +220,11 @@ user_notes_overrides
 access_feedback
 ```
 
-Lakebase is PostgreSQL-backed and retains state across deployments. Use the
-managed App resource/identity rather than a hard-coded password or connection
-string. [Lakebase resource documentation](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/lakebase)
+Lakebase is PostgreSQL-backed and retains state across deployments. The App
+resource injects `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPORT`, and `PGSSLMODE`;
+the server generates a fresh OAuth database credential for each operation.
+Never send these values or an owner ID to the browser.
+[Lakebase resource documentation](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/lakebase)
 
 Keep data types separate:
 

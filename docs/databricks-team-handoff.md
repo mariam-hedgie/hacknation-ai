@@ -1,293 +1,288 @@
-# Handoff: Databricks team
+# aven Databricks deployment handoff
 
-Executable repository-side pipeline files are indexed in
-[`../databricks/README.md`](../databricks/README.md). Run them in order and use
-[`compliance/final-submission-gate.md`](compliance/final-submission-gate.md) to
-record live workspace proof; the documents below are not substitutes for
-running the pipeline on the organizer dataset.
+Give this document to the teammate who owns the Databricks account. It is a
+deployment checklist for the existing React + FastAPI app, not a request to
+redesign the product.
 
-## Your mission
+## Can another teammate deploy it?
 
-Build and deploy **Aven**, the working Data Legend Referral Copilot, on Databricks.
-Your work is the trusted product backbone: source data, evidence receipts,
-shortlist logic, saved plans, and the live Databricks App.
+Yes. The teammate must have:
 
-You do **not** need to build a generic chatbot, clinical diagnosis engine,
-real-time scheduling system, pharmacy inventory system, or all-India travel
-planner.
+- a **Databricks Free Edition** workspace, not a paid organizational workspace;
+- access to this Git repository and the commit being submitted;
+- permission to create/manage a Databricks App, Lakebase Autoscaling database,
+  AI Search endpoint/index, secret scope, and the relevant Unity Catalog data;
+- access to the organizer-linked Data Legend dataset.
 
-## Required reading order for the Databricks agent
+If Free Edition does not expose one of those products or its quota is exhausted,
+record that as a blocker. Do not silently deploy from a paid workspace or claim
+that a local fallback is live Databricks evidence.
 
-Read these in order before writing code, creating tables, or changing product
-scope. Do not substitute a summary for the official brief.
+## What Mariam does before handoff
+
+1. Run the local verification commands in the final section of this document.
+2. Review and commit the intended working-tree changes.
+3. Push that commit to the repository/branch the teammate can access.
+4. Send the teammate:
+   - repository URL;
+   - branch and exact commit SHA;
+   - this document;
+   - the official challenge PDF at
+     [`reference/data-legend-original-brief.pdf`](reference/data-legend-original-brief.pdf).
+
+Do not send `.env`, API keys, Databricks tokens, database passwords, patient
+information, or the identity-pepper value.
+
+## Definition of done
+
+The work is complete only when a fresh signed-in browser can:
+
+1. open the React app in Databricks Free Edition;
+2. enter and confirm a location and care need;
+3. receive challenge-data candidates with distance, literal row/field evidence,
+   gaps, and an explicit save action;
+4. save a decision and optional note;
+5. close/reopen the app and retrieve that saved decision;
+6. keep two signed-in users' plans isolated even when they use the same plan ID.
+
+## Step 1 — clone and inspect the exact commit
+
+```bash
+git clone <REPOSITORY_URL>
+cd hacknation-ai
+git switch <BRANCH>
+git pull --ff-only
+git rev-parse HEAD
+```
+
+The last value must match the SHA Mariam supplied. Do not deploy uncommitted
+workspace edits.
+
+Read, in order:
 
 1. [`reference/data-legend-original-brief.pdf`](reference/data-legend-original-brief.pdf)
-   - **Why:** official challenge rules, chosen mission, data expectations,
-     required deployment, and judging rubric. This wins if any local document
-     conflicts with it.
 2. [`../AGENTS.md`](../AGENTS.md)
-   - **Why:** shared non-negotiables: focused workflow, evidence/uncertainty,
-     decision checkpoints, secret handling, and agent responsibilities.
-3. [`final-product-plan.md`](final-product-plan.md)
-   - **Why:** exact product behavior, conversational task flows, patient-facing
-     language, safety boundaries, and what must not be claimed.
-4. [`databricks-execution-plan.md`](databricks-execution-plan.md)
-   - **Why:** full data architecture, table contracts, verification gates,
-     GitHub synchronization, and deployment sequence.
-5. This document, `databricks-team-handoff.md`
-   - **Why:** the team's owned deliverables and concrete first actions.
+3. [`compliance/data-legend-official-brief-audit.md`](compliance/data-legend-official-brief-audit.md)
+4. [`compliance/final-submission-gate.md`](compliance/final-submission-gate.md)
+5. [`security/login-and-persistence-audit.md`](security/login-and-persistence-audit.md)
 
-Then read only the official Databricks pages relevant to the next task:
+## Step 2 — confirm the workspace and dataset
 
-| Task | Specific official documentation |
-|---|---|
-| Create/deploy the app | [Databricks Apps overview](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/) and [deploy from Git](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/deploy) |
-| Start a Streamlit app | [Streamlit App tutorial](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/tutorial-streamlit) and [`app.yaml` runtime configuration](https://docs.databricks.com/gcp/en/dev-tools/databricks-apps/app-runtime) |
-| Attach SQL/tables/secrets | [Add resources to a Databricks App](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources) |
-| Persist plans and notes | [Add a Lakebase resource to an App](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/lakebase) |
-| Confirm Free Edition capability | [Free Edition overview and limits](https://docs.databricks.com/aws/en/getting-started/free-edition) |
-| Govern tables/lineage | [Unity Catalog overview](https://docs.databricks.com/aws/en/data-governance/unity-catalog) |
+In the Databricks UI:
 
-Do not begin with Agent Bricks, MLflow, Vector Search, or a model-serving
-endpoint. Read their specific documentation only after the platform, raw table,
-Evidence Receipt, shortlist, and persistence gates are working.
+1. Confirm the workspace is labelled **Free Edition**.
+2. Open the organizer Marketplace link from page 4 of the PDF.
+3. Subscribe to/open the India facilities dataset.
+4. Record its full catalog, schema, and table name.
+5. Run a row count and schema inspection.
 
-## What success looks like
+The PDF says 10,000 rows and 51 columns. If the live listing returns a different
+count or schema, record the actual result and retrieval time in
+[`compliance/final-submission-gate.md`](compliance/final-submission-gate.md).
+Do not trim, duplicate, or relabel rows merely to force the advertised count.
 
-A user opens a **live Databricks App**, types or speaks a known care need,
-confirms the extracted request, sees a small evidence-backed shortlist, opens
-an Evidence Receipt containing literal source text and unknowns, saves a plan
-with a note, reloads, and sees that plan again.
+## Step 3 — build the active searchable table
 
-The app must visibly use the challenge data. It must not make a facility claim
-without showing where it came from.
-
-## Exact platform setup
-
-### 1. Make the App exist first
-
-In the Databricks workspace:
-
-1. Open the app switcher -> **Databricks Apps**.
-2. Create a tiny Streamlit or Gradio hello-world app.
-3. Open its generated URL and verify it loads.
-4. Create the real custom app with a neutral technical name such as
-   `referral-copilot` (the public product name is **Aven**; keeping the
-   technical identifier neutral prevents a later brand change from breaking the
-   deployment URL or resources).
-5. Configure it to deploy from this GitHub repository, with source path:
-   `apps/referral-copilot`.
-
-Databricks Apps runs the deployed product in the workspace; source code can be
-developed locally/GitHub and then deployed there. It supports Git deployment
-and Python frameworks such as Streamlit and Gradio. See the official
-[Apps overview](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/)
-and [Git deployment guide](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/deploy).
-
-### 2. Create/attach App resources in the UI
-
-Use the App's **Resources** section instead of embedding IDs, credentials, or
-personal access tokens in code.
-
-| Resource | Permission needed | Why |
-|---|---|---|
-| SQL warehouse | Can use | App queries the derived facility tables. |
-| Unity Catalog table(s) | Select | App reads facilities/evidence/ranking results. |
-| Lakebase database | Can connect and create | App persists plans, notes, and feedback. |
-| Secret | Read/use only | Optional ElevenLabs key, if voice is added. |
-| MLflow experiment | Read only initially | Optional trace viewer; never a prerequisite. |
-
-Each App has a service principal. Use that managed identity. Never put a
-personal token or database password in the repository. Apps resources are the
-recommended way to provide secure, portable access and permissions. [Databricks
-resource documentation](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources)
-
-### 3. Add the minimum app files to this repository
-
-Create these files under `apps/referral-copilot/`:
+The active app reads `workspace.default.facilities_searchable`. The current
+pipeline is:
 
 ```text
-apps/referral-copilot/
-  app.py
-  app.yaml
-  requirements.txt
-  src/
-    intake.py
-    ranking.py
-    evidence.py
-    persistence.py
-    safety.py
-  tests/
+official facilities table
+  -> extract_data.py
+  -> workspace.default.facilities_consolidated
+  -> flatten_data.py
+  -> workspace.default.facilities_searchable
 ```
 
-Start with these exact minimal contents:
+Important:
 
-`requirements.txt`
+- `extract_data.py` performs the expensive full-table consolidation. Verify the
+  source table and output SQL before running it.
+- `flatten_data.py` preserves the raw source fields, row ID, coordinates, city,
+  and validated public/private operator value. Do not remove them.
+- `search_text` is the AI Search embedding source.
+- A displayed claim is accepted only when its extracted span is found literally
+  in the preserved raw source field.
+
+The standalone scripts currently read `SERVER_HOSTNAME`, `HTTP_PATH`, and
+`ACCESS_TOKEN` from the operator's local environment. If you use that route,
+keep the token only in your ignored local `.env`; never paste it into Git,
+screenshots, chat, or `app.yaml`. Prefer Databricks workspace execution or OAuth
+where available.
+
+After the table is built, verify:
+
+```sql
+SELECT count(*) FROM workspace.default.facilities_searchable;
+
+SELECT
+  count_if(unique_id IS NULL OR trim(unique_id) = '') AS missing_row_ids,
+  count_if(search_text IS NULL OR trim(search_text) = '') AS missing_search_text,
+  count_if(raw_capability IS NULL) AS missing_raw_capability,
+  count_if(latitude IS NOT NULL AND (latitude < -90 OR latitude > 90)) AS bad_latitude,
+  count_if(longitude IS NOT NULL AND (longitude < -180 OR longitude > 180)) AS bad_longitude
+FROM workspace.default.facilities_searchable;
+```
+
+Keep invalid/missing values as unknown. Do not guess replacements.
+
+## Step 4 — create AI Search
+
+Follow [`../databricks/05_vector_search_setup.md`](../databricks/05_vector_search_setup.md).
+Use these exact names because `app.yaml` references them:
+
+- AI Search endpoint: `aven-facility-search`
+- source table: `workspace.default.facilities_searchable`
+- primary key: `unique_id`
+- embedding source: `search_text`
+- App resource key: `facility-evidence-index`
+- App permission: **Can select**
+
+Sync the index and run a query that returns at least `unique_id`, raw receipt
+fields, coordinates, and the extracted claim fields. Semantic similarity is
+only candidate retrieval; it is not evidence by itself.
+
+## Step 5 — create and attach Lakebase
+
+1. Create a Lakebase **Autoscaling** project/database.
+2. In the App's Resources section choose **Add resource → Database**.
+3. Select the Lakebase database with **Can connect and create**.
+4. Set its resource key to exactly `postgres`.
+
+Databricks then injects `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPORT`, and
+`PGSSLMODE`. `app.yaml` resolves the endpoint path through `valueFrom: postgres`.
+The app generates short-lived OAuth database credentials itself; do not create
+or paste a database password.
+
+The server creates the safe owner-scoped tables at startup. You may also review
+or run [`../databricks/lakebase_schema.sql`](../databricks/lakebase_schema.sql)
+in the Lakebase SQL editor. If it reports a legacy table without `owner_id`,
+stop and recreate/migrate that hackathon-only schema—never bypass the check.
+
+## Step 6 — create the identity secret
+
+Generate a value locally:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Store the output in a dedicated Databricks secret scope. Do not send it to
+Mariam. In the App Resources section:
+
+1. add that secret with **Can read**;
+2. use the exact resource key `identity-pepper`.
+
+`app.yaml` exposes it only to the server as `AVEN_IDENTITY_PEPPER`. Rotating it
+later requires a saved-plan ownership migration.
+
+## Step 7 — create and deploy the App
+
+1. Open **Databricks Apps** and create a custom app from the Git repository.
+2. Select the exact branch/commit supplied by Mariam.
+3. Set the application source directory to `apps/referral-copilot`.
+4. Attach:
+   - Lakebase resource `postgres`;
+   - secret resource `identity-pepper`;
+   - AI Search resource `facility-evidence-index`.
+5. Grant intended teammates/judges **CAN USE**, not **CAN MANAGE**.
+6. Deploy.
+
+Databricks sees the app-root `package.json`, installs Node and Python
+dependencies, builds the React workspace, then runs `python run_app.py` from
+[`../apps/referral-copilot/app.yaml`](../apps/referral-copilot/app.yaml).
+
+Do not change the command back to Streamlit. The submitted interface is React.
+
+## Step 8 — live verification
+
+Use synthetic demo requests only.
+
+### Evidence check
+
+- Complete the Patna golden path.
+- Open all three result cards.
+- Confirm each eligible card shows a distance or an explicit unknown state.
+- Confirm each documented claim shows a raw field and row ID.
+- Confirm missing evidence reads `not documented`/`could not confirm`, never
+  `unavailable`.
+- Confirm an invalid/fabricated span cannot appear as documented.
+
+### Persistence check
+
+1. User A saves `shared-test-plan` and a harmless note.
+2. Refresh and reopen **My plans**; it must still appear.
+3. Close the browser, sign in again, and confirm it still appears.
+4. User B saves the same plan ID.
+5. Confirm A and B see only their own version.
+6. Delete A's plan and confirm B's remains.
+7. Inspect Lakebase: `owner_id` must be pseudonymous; stored JSON must not
+   contain email, location, medication, health intake, transcript, or audio.
+
+### Deployment check
+
+- Open the URL in a fresh browser session.
+- Confirm unauthenticated access is redirected/denied by Databricks.
+- Confirm the UI says live Databricks evidence only when AI Search is working.
+- Record the URL, commit SHA, resource keys, row count, test time, and a
+  successful cross-session plan ID in
+  [`compliance/final-submission-gate.md`](compliance/final-submission-gate.md).
+
+## What to send back to Mariam
+
+Do not send secrets or tokens. Send:
 
 ```text
-databricks-sdk
-databricks-sql-connector
-streamlit
-pandas
+Workspace confirmed as Free Edition: yes/no
+Dataset full table name:
+Observed row count and column count:
+Searchable table name:
+AI Search endpoint/index/resource key:
+Lakebase resource key:
+Databricks App URL:
+Deployed Git SHA:
+Cross-session persistence test: pass/fail
+Two-user isolation test: pass/fail
+Broken receipt test: pass/fail
+Any quota/permission/blocker:
 ```
 
-`app.yaml`
+## Local test commands
 
-```yaml
-command: ['streamlit', 'run', 'app.py']
-env:
-  - name: 'STREAMLIT_GATHER_USAGE_STATS'
-    value: 'false'
+From the repository root, one-time setup:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r apps/referral-copilot/requirements.txt
+cd apps/referral-copilot
+npm install
+npm run build
 ```
 
-This is the current official Streamlit starting pattern. Add dependencies only
-when the code actually uses them. [Official Streamlit tutorial](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/tutorial-streamlit),
-[app.yaml reference](https://docs.databricks.com/gcp/en/dev-tools/databricks-apps/app-runtime)
+Start the production-shaped React app:
 
-## Data work you own
-
-### Source table: never mutate it
-
-Create:
-
-```text
-<catalog>.referral_copilot.facilities_raw
+```bash
+cd /path/to/hacknation-ai/apps/referral-copilot
+source ../../.venv/bin/activate
+AVEN_AUTH_MODE=local_demo AVEN_ALLOW_LOCAL_DEMO=true python run_app.py
 ```
 
-It contains the original challenge rows plus ingestion metadata. Do not clean
-over the raw source. You may add normalized/derived tables, but preserve the
-ability to point every displayed claim back to original fields and source rows.
+Open <http://localhost:8010>. Local saved plans are process-local; restarting
+the server clears them. That is expected and does not test Lakebase.
 
-### Required derived tables
+Run all local checks from the repository root:
 
-```text
-facilities_normalized
-facility_claims_evidence
-facility_trust_assessment
-saved_care_plans          # Lakebase preferred
-shortlists                # Lakebase preferred
-user_notes_overrides      # Lakebase preferred
-access_feedback           # optional stretch
-evaluation_cases
+```bash
+source .venv/bin/activate
+python -m unittest discover -s apps/referral-copilot/tests -q
+python -m compileall -q apps/referral-copilot
+npm test
+npm --prefix apps/referral-copilot run build
+npm --prefix apps/referral-copilot --workspace frontend run lint
+python -m pip check
 ```
 
-Required fields for the key evidence table:
-
-```text
-facility_id
-capability
-source_column
-literal_source_text
-cited_span
-source_row_id
-extraction_method
-```
-
-**Hard rule:** before rendering an Evidence Receipt, verify that `cited_span`
-is literally present in `literal_source_text`. If it is not, discard it. An LLM
-may help find a sentence but cannot be the source itself.
-
-### Data-status labels
-
-Use only these concepts in the product:
-
-| UI label | Meaning |
-|---|---|
-| Documented in facility records | Source text supports the claim. |
-| Details disagree - call first | Relevant records conflict. |
-| We could not confirm this | Dataset does not establish the claim. |
-| Official external source | Separate official source, URL/date shown. |
-
-Never render `not documented` as `not available`.
-
-## Planner logic you own
-
-The conversational layer will send a confirmed, structured request. Do not
-rank a facility before confirmation.
-
-```json
-{
-  "care_task": "known_referral | procedure | lab | refill | symptom_first | follow_up",
-  "confirmed_capability": "string or null",
-  "location": "string / coordinates",
-  "urgency": "routine | soon | urgent | emergency",
-  "travel_tolerance": "low | medium | high",
-  "budget_sensitivity": "low | medium | high",
-  "facility_preference": "public | private | either | unknown",
-  "language_preference": "string or null",
-  "user_confirmed": true
-}
-```
-
-Implement a deterministic shortlist:
-
-1. Find source-backed capability matches.
-2. Calculate distance only when coordinates are valid.
-3. Apply visible weights for travel tolerance and facility preference.
-4. Penalize conflicting evidence and show missing fields.
-5. Return up to three intentionally different options:
-   - best documented fit;
-   - lower-burden/public-preference option;
-   - option needing verification.
-6. Return ranking factors and Evidence Receipt data with every option.
-
-`budget_sensitivity` is **not** a fee calculator. It may only affect ranking
-through real fields, such as documented facility type, if the dataset supports
-that interpretation. Do not invent costs, coverage, or eligibility.
-
-## Persistence contract
-
-Lakebase is the preferred state store. Attach it as an App resource and create:
-
-```text
-saved_care_plans(plan_id, demo_user_id, query_id, selected_facility_id,
-                 care_task, next_steps, user_language, created_at, updated_at)
-
-user_notes_overrides(override_id, plan_id, facility_id, user_note,
-                     selected_despite_rank, created_at)
-```
-
-User notes must never modify `facility_claims_evidence` or a facility trust
-score. Lakebase is intended for PostgreSQL-backed app state that persists across
-deployments. [Lakebase App resource documentation](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/lakebase)
-
-## What the rest of the team gives you
-
-| Input | Needed from | When |
-|---|---|---|
-| One fixed capability taxonomy and two seeded scenarios | Product lead | Before ranking logic |
-| Patient wording and safety copy | Product/UX | Before action-plan screen |
-| Chat extraction schema | AI engineer | Before intake integration |
-| Voice integration decision | AI/UX | Only after text flow works |
-| Brand/name/UI styling | Product/UX | Can change independently of technical app name |
-
-## What you return to the rest of the team
-
-1. The live App URL.
-2. Exact catalog/schema/table names and resource keys.
-3. A documented response shape for `get_shortlist(confirmed_request)`.
-4. Two seeded case IDs and their expected results.
-5. A save/reload demo account or deterministic demo flow.
-6. Any unavailable dataset fields/features, stated clearly.
-
-## Build order
-
-1. **Platform proof:** hello-world App deploys from GitHub.
-2. **Data proof:** `facilities_raw` loads; profile queries run.
-3. **Trust proof:** one facility/capability opens a literal Evidence Receipt.
-4. **Product proof:** confirmed request returns a source-backed shortlist.
-5. **Persistence proof:** save, reload, reopen.
-6. **Integration proof:** conversational UI sends the confirmed request object.
-7. **Polish only after all above:** voice, map, MLflow trace viewer, external
-   cross-checks, or richer travel estimates.
-
-## Before declaring done
-
-- [ ] Deployed App URL works in a fresh browser session.
-- [ ] App reads challenge-derived data through App resources.
-- [ ] Every shown claim has a literal source span or an explicit unknown label.
-- [ ] Conflicting and missing records have seeded tests.
-- [ ] User can save a plan/note and reopen it after reload.
-- [ ] No personal token, API key, raw data, or patient data is in GitHub.
-- [ ] Text-only demo works if voice/external services fail.
-- [ ] Final App is deployed from a specific Git commit, not an untracked edit.
+Local success proves the UI, API, safety logic, receipt validation, and
+persistence contract. It does not prove Free Edition deployment, live challenge
+data, AI Search, or Lakebase cross-session persistence.

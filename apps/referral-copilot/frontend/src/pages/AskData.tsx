@@ -55,9 +55,9 @@ export function AskData() {
       <div className="section-title" style={{ marginBottom: "0.6rem" }}>
         Planner data questions
       </div>
-      <h2>Ask Aven about the data</h2>
+      <h2>Quick lookup</h2>
       <p className="hint" style={{ maxWidth: "70ch" }}>
-        Aven turns this into governed SQL over the facility tables via Databricks Genie and shows the query it ran —
+        Ask a focused question when you need one fact instead of a full care route. aven checks the available facility data and shows how it answered —
         this is aggregate/coverage data, not a personal care plan.
       </p>
 
@@ -92,7 +92,7 @@ export function AskData() {
 
       {notAnswered && (
         <div className="alert alert-warning">
-          Aven could not answer that — try rephrasing, or asking about a specific capability/procedure.
+          aven could not answer that — try rephrasing, or asking about a specific capability, doctor, fee, or procedure.
         </div>
       )}
 

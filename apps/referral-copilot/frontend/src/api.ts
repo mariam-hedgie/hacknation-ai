@@ -2,7 +2,7 @@
 // here maps 1:1 to an existing, framework-independent Python function — no
 // business logic is duplicated in the frontend.
 
-const BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8010";
+const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? "http://127.0.0.1:8010" : "");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -75,6 +75,12 @@ export interface PlanOption {
   next_step: string;
   ranking: string;
   evidence_status?: string;
+  distance_km?: number | null;
+  recommended_mode?: string | null;
+  estimated_journey_minutes?: number | null;
+  estimated_travel_cost_rupees?: number | null;
+  arrival_feasible?: boolean | null;
+  ambulance_documented?: boolean;
   enrichment: Enrichment;
 }
 
@@ -92,6 +98,69 @@ export interface PlanRequestBody {
   has_current_prescription?: boolean | null;
   has_clinician_order?: boolean | null;
   emergency_warning_reported: boolean;
+  max_distance_km?: number | null;
+  travel_modes?: string[];
+  travel_budget_rupees?: number | null;
+  care_budget_rupees?: number | null;
+  required_arrival_date?: string | null;
+}
+
+export interface IntakeDraft {
+  care_task: string;
+  capability: string | null;
+  location: string | null;
+  urgency: string;
+  travel_modes: string[];
+  language: string | null;
+  clarification_question: string | null;
+  requires_review: boolean;
+}
+
+export interface JourneyResult {
+  maps_url: string;
+  estimate: null | {
+    duration_minutes: number;
+    cost_low_rupees: number;
+    cost_high_rupees: number;
+    disclaimer: string;
+  };
+  ticket_links: { label: string; url: string; external_booking: boolean }[];
+}
+
+export interface PublicSourceCandidate {
+  title: string;
+  url: string;
+  snippet: string;
+  phone_numbers: string[];
+  retrieved_at: string;
+  status: string;
+}
+
+export interface SavedPlan {
+  plan_id?: string;
+  facility: string;
+  label: string;
+  care_task: string;
+  travel?: string;
+  cost?: string;
+  next_step?: string;
+  unknowns?: string;
+  evidence_status?: string;
+  saved_at?: number;
+}
+
+export interface PersistedPlan {
+  plan_id: string;
+  selected_facility_id?: string;
+  selected_option?: Partial<PlanOption> & { care_task?: string };
+  next_steps?: string[];
+  user_override?: { facility_id: string; note: string; selected_despite_rank: boolean };
+}
+
+export interface SessionInfo {
+  display_name: string;
+  authenticated: boolean;
+  persistence: "lakebase" | "local_demo";
 }
 
 export interface PlanResponse {
@@ -116,7 +185,7 @@ export interface Profile {
   name: string;
   email: string;
   history: { ts: number; care_task: string; capability: string; location: string }[];
-  saved: { facility: string; label: string; care_task: string }[];
+  saved: SavedPlan[];
   ratings: Record<string, { rating: number; note: string }>;
   blocklist: string[];
 }
@@ -131,9 +200,37 @@ export const api = {
     request<TravelCapability[]>(`/api/travel-capabilities?modes=${encodeURIComponent(modes.join(","))}`),
   plan: (body: PlanRequestBody) =>
     request<PlanResponse>("/api/plan", { method: "POST", body: JSON.stringify(body) }),
+  structureIntake: (text: string) =>
+    request<IntakeDraft>("/api/structure-intake", { method: "POST", body: JSON.stringify({ text }) }),
+  transcribe: (audio_base64: string, language_code: string) =>
+    request<{ text: string; requires_review: boolean }>("/api/transcribe", {
+      method: "POST",
+      body: JSON.stringify({ audio_base64, language_code }),
+    }),
+  journey: (origin: string, destination: string, mode: string, distance_km: number | null) =>
+    request<JourneyResult>("/api/journey", {
+      method: "POST",
+      body: JSON.stringify({ origin, destination, mode, distance_km }),
+    }),
+  publicSources: (facility: string, capability: string) =>
+    request<{ candidates: PublicSourceCandidate[] }>("/api/public-sources", {
+      method: "POST",
+      body: JSON.stringify({ facility, capability }),
+    }),
   ask: (question: string, conversation_id: string | null) =>
     request<AskResult>("/api/ask", { method: "POST", body: JSON.stringify({ question, conversation_id }) }),
-  getProfile: (email: string) => request<Profile>(`/api/profile?email=${encodeURIComponent(email)}`),
-  saveProfile: (profile: Profile) =>
-    request<Profile>("/api/profile", { method: "POST", body: JSON.stringify({ profile }) }),
+  session: () => request<SessionInfo>("/api/session"),
+  listPlans: () => request<{ persistence: "lakebase" | "local_demo"; plans: PersistedPlan[] }>("/api/plans"),
+  savePlan: (plan: PersistedPlan) =>
+    request<{ persistence: "lakebase" | "local_demo"; plan: PersistedPlan }>("/api/plans", {
+      method: "POST",
+      body: JSON.stringify(plan),
+    }),
+  saveFeedback: (planId: string, status: string, note: string) =>
+    request<{ feedback: { plan_id: string; status: string; note: string } }>(`/api/plans/${encodeURIComponent(planId)}/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ status, note }),
+    }),
+  deletePlan: (planId: string) =>
+    request<{ deleted: boolean }>(`/api/plans/${encodeURIComponent(planId)}`, { method: "DELETE" }),
 };

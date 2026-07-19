@@ -19,19 +19,19 @@ interface StringsShape {
 export const STRINGS: Record<LangCode, StringsShape> = {
   en: {
     boundary:
-      "Aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
+      "aven helps plan access to care — it does not diagnose, prescribe, promise prices, show live availability, or replace emergency care.",
     steps: ["Tell us", "Confirm", "Your plan"],
     eyebrow: "Care Navigation · Evidence-Backed",
   },
   hi: {
     boundary:
-      "Aven देखभाल तक पहुंच की योजना बनाने में मदद करता है — यह निदान नहीं करता, दवा नहीं लिखता, कीमतों का वादा नहीं करता, लाइव उपलब्धता नहीं दिखाता, और न ही आपातकालीन देखभाल की जगह लेता है।",
+      "aven देखभाल तक पहुंच की योजना बनाने में मदद करता है — यह निदान नहीं करता, दवा नहीं लिखता, कीमतों का वादा नहीं करता, लाइव उपलब्धता नहीं दिखाता, और न ही आपातकालीन देखभाल की जगह लेता है।",
     steps: ["बताएं", "पुष्टि करें", "आपकी योजना"],
     eyebrow: "देखभाल मार्गदर्शन · प्रमाण-आधारित",
   },
   mr: {
     boundary:
-      "Aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते — हे निदान करत नाही, औषध लिहून देत नाही, किमतींचे आश्वासन देत नाही, थेट उपलब्धता दाखवत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
+      "aven काळजी मिळवण्याचे नियोजन करण्यास मदत करते — हे निदान करत नाही, औषध लिहून देत नाही, किमतींचे आश्वासन देत नाही, थेट उपलब्धता दाखवत नाही किंवा आपत्कालीन काळजीची जागा घेत नाही.",
     steps: ["सांगा", "पुष्टी करा", "तुमची योजना"],
     eyebrow: "काळजी मार्गदर्शन · पुरावा-आधारित",
   },
@@ -83,7 +83,7 @@ interface UiCopyShape {
 export const UI_COPY: Record<LangCode, UiCopyShape> = {
   en: {
     hero_tagline: "The right care route — <em>with its receipts.</em>",
-    hero_sub: "Describe a care need in plain words. Aven plans the next step and shows the evidence behind it.",
+    hero_sub: "Describe a care need in plain words. aven plans the next step and shows the evidence behind it.",
     scroll_cue: "Scroll",
     nav_cta: "Explore",
     marquee: [
@@ -98,7 +98,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     about_eyebrow: "How it works",
     about_title: "Care that comes with its receipts.",
     about_body:
-      "Describe a care-access need in plain words. Aven turns it into a clear, structured request, then plans an actionable route — showing the evidence behind every option and being honest about what it could not confirm.",
+      "Describe a care-access need in plain words. aven turns it into a clear, structured request, then plans an actionable route — showing the evidence behind every option and being honest about what it could not confirm.",
     about_points: [
       ["Say it your way", "Type naturally in English, Hindi, or Marathi. No forms to decode."],
       ["See the proof", "Every option shows what is documented, what conflicts, and what is unknown."],
@@ -113,7 +113,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     location_ph: "City, district, or pincode",
     refill_rx_label: "I have a current prescription or refill instruction for this medicine",
     refill_rx_help:
-      "Aven can only plan a refill route when a current prescription is confirmed. We do not change doses or prescribe.",
+      "aven can only plan a refill route when a current prescription is confirmed. We do not change doses or prescribe.",
     lab_order_label: "Has a clinician ordered this test?",
     lab_order_options: { yes: "Yes", unsure: "I am not sure", no: "No" },
     extra_label: "Anything else we should know? (optional)",
@@ -125,7 +125,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     budget_label: "How important is minimizing cost?",
     facility_label: "Facility preference",
     language_label: "Preferred language (optional)",
-    submit: "Review what Aven understood",
+    submit: "Review what aven understood",
     confirm_title: "Please confirm before we plan",
     confirm_edit: "Edit request",
     confirm_go: "Confirm and find routes",
@@ -139,7 +139,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
   },
   hi: {
     hero_tagline: "सही देखभाल मार्ग — <em>प्रमाण के साथ।</em>",
-    hero_sub: "अपनी ज़रूरत सरल शब्दों में बताएं। Aven अगला कदम तय करता है और उसके पीछे का प्रमाण दिखाता है।",
+    hero_sub: "अपनी ज़रूरत सरल शब्दों में बताएं। aven अगला कदम तय करता है और उसके पीछे का प्रमाण दिखाता है।",
     scroll_cue: "नीचे देखें",
     nav_cta: "देखें",
     marquee: [
@@ -154,7 +154,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     about_eyebrow: "यह कैसे काम करता है",
     about_title: "देखभाल, जो प्रमाण के साथ आती है।",
     about_body:
-      "देखभाल तक पहुंच की अपनी ज़रूरत सरल शब्दों में बताएं। Aven उसे एक स्पष्ट, संरचित अनुरोध में बदलता है, फिर एक व्यावहारिक मार्ग बनाता है — हर विकल्प के पीछे का प्रमाण दिखाते हुए और जो पुष्टि नहीं हो सकी उसके बारे में ईमानदार रहते हुए।",
+      "देखभाल तक पहुंच की अपनी ज़रूरत सरल शब्दों में बताएं। aven उसे एक स्पष्ट, संरचित अनुरोध में बदलता है, फिर एक व्यावहारिक मार्ग बनाता है — हर विकल्प के पीछे का प्रमाण दिखाते हुए और जो पुष्टि नहीं हो सकी उसके बारे में ईमानदार रहते हुए।",
     about_points: [
       ["अपने शब्दों में कहें", "अंग्रेज़ी, हिंदी या मराठी में सहज रूप से लिखें। कोई जटिल फ़ॉर्म नहीं।"],
       ["प्रमाण देखें", "हर विकल्प दिखाता है कि क्या प्रलेखित है, क्या विरोधाभासी है, और क्या अज्ञात है।"],
@@ -169,7 +169,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     location_ph: "शहर, ज़िला या पिनकोड",
     refill_rx_label: "मेरे पास इस दवा का मौजूदा पर्चा या दोबारा लेने की सलाह है",
     refill_rx_help:
-      "Aven दवा दोबारा लेने का मार्ग तभी बना सकता है जब मौजूदा पर्चे की पुष्टि हो। हम खुराक नहीं बदलते और दवा नहीं लिखते।",
+      "aven दवा दोबारा लेने का मार्ग तभी बना सकता है जब मौजूदा पर्चे की पुष्टि हो। हम खुराक नहीं बदलते और दवा नहीं लिखते।",
     lab_order_label: "क्या किसी चिकित्सक ने यह जांच लिखी है?",
     lab_order_options: { yes: "हां", unsure: "मुझे यकीन नहीं", no: "नहीं" },
     extra_label: "और कुछ जो हमें जानना चाहिए? (वैकल्पिक)",
@@ -181,7 +181,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     budget_label: "लागत कम करना कितना महत्वपूर्ण है?",
     facility_label: "सुविधा प्राथमिकता",
     language_label: "पसंदीदा भाषा (वैकल्पिक)",
-    submit: "देखें Aven ने क्या समझा",
+    submit: "देखें aven ने क्या समझा",
     confirm_title: "योजना बनाने से पहले पुष्टि करें",
     confirm_edit: "अनुरोध संपादित करें",
     confirm_go: "पुष्टि करें और मार्ग खोजें",
@@ -199,7 +199,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
   },
   mr: {
     hero_tagline: "योग्य काळजी मार्ग — <em>पुराव्यासह.</em>",
-    hero_sub: "तुमची गरज सोप्या शब्दांत सांगा. Aven पुढील पाऊल ठरवते आणि त्यामागील पुरावा दाखवते.",
+    hero_sub: "तुमची गरज सोप्या शब्दांत सांगा. aven पुढील पाऊल ठरवते आणि त्यामागील पुरावा दाखवते.",
     scroll_cue: "खाली पहा",
     nav_cta: "पहा",
     marquee: [
@@ -214,7 +214,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     about_eyebrow: "हे कसे कार्य करते",
     about_title: "काळजी, जी पुराव्यासह येते.",
     about_body:
-      "काळजी मिळवण्याची तुमची गरज सोप्या शब्दांत सांगा. Aven ती स्पष्ट, संरचित विनंतीमध्ये बदलते, नंतर कृतीयोग्य मार्ग ठरवते — प्रत्येक पर्यायामागील पुरावा दाखवत आणि ज्याची पुष्टी होऊ शकली नाही त्याबद्दल प्रामाणिक राहत.",
+      "काळजी मिळवण्याची तुमची गरज सोप्या शब्दांत सांगा. aven ती स्पष्ट, संरचित विनंतीमध्ये बदलते, नंतर कृतीयोग्य मार्ग ठरवते — प्रत्येक पर्यायामागील पुरावा दाखवत आणि ज्याची पुष्टी होऊ शकली नाही त्याबद्दल प्रामाणिक राहत.",
     about_points: [
       ["तुमच्या शब्दांत सांगा", "इंग्रजी, हिंदी किंवा मराठीत सहजपणे लिहा. गुंतागुंतीचे फॉर्म नाहीत."],
       ["पुरावा पहा", "प्रत्येक पर्याय दाखवतो काय नोंदवलेले आहे, काय विसंगत आहे आणि काय अज्ञात आहे."],
@@ -229,7 +229,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     location_ph: "शहर, जिल्हा किंवा पिनकोड",
     refill_rx_label: "माझ्याकडे या औषधाचे सध्याचे प्रिस्क्रिप्शन किंवा पुन्हा घेण्याची सूचना आहे",
     refill_rx_help:
-      "सध्याच्या प्रिस्क्रिप्शनची पुष्टी झाल्यावरच Aven औषध पुन्हा घेण्याचा मार्ग ठरवू शकते. आम्ही मात्रा बदलत नाही आणि औषध लिहून देत नाही.",
+      "सध्याच्या प्रिस्क्रिप्शनची पुष्टी झाल्यावरच aven औषध पुन्हा घेण्याचा मार्ग ठरवू शकते. आम्ही मात्रा बदलत नाही आणि औषध लिहून देत नाही.",
     lab_order_label: "डॉक्टरांनी ही तपासणी सांगितली आहे का?",
     lab_order_options: { yes: "होय", unsure: "मला खात्री नाही", no: "नाही" },
     extra_label: "आणखी काही आम्हाला माहीत असावे? (ऐच्छिक)",
@@ -241,7 +241,7 @@ export const UI_COPY: Record<LangCode, UiCopyShape> = {
     budget_label: "खर्च कमी करणे किती महत्त्वाचे आहे?",
     facility_label: "सुविधा पसंती",
     language_label: "पसंतीची भाषा (ऐच्छिक)",
-    submit: "Aven ने काय समजले ते पहा",
+    submit: "aven ने काय समजले ते पहा",
     confirm_title: "नियोजनापूर्वी पुष्टी करा",
     confirm_edit: "विनंती संपादित करा",
     confirm_go: "पुष्टी करा आणि मार्ग शोधा",

@@ -1,5 +1,5 @@
 streamlit>=1.37,<2
-databricks-sdk>=0.46
+databricks-sdk>=0.89,<1
 databricks-sql-connector>=3.5
 pandas>=2.2
 elevenlabs>=2,<3
@@ -10,12 +10,14 @@ python-dotenv>=1,<2
 # Local API for the React frontend (frontend/) — src/backend/api.py.
 fastapi>=0.115
 uvicorn>=0.30
+psycopg[binary]>=3.2,<4
 
 # Data Legend required stack — used by src/backend/* once the stubs are wired.
 # Kept here so the Databricks App deploy installs them; all imports in
 # src/backend are guarded so the app still runs locally without them.
-# TODO: uncomment/pin as each integration lands (see TODO.md at the repo root).
-# mlflow>=3.0                     # observability + trace cost tracking
+# Imports remain guarded so local demo mode works without a configured
+# experiment; Databricks deployment installs MLflow 3 for live trace evidence.
+mlflow>=3.0,<4                    # observability + trace cost tracking
 databricks-vectorsearch>=0.40     # Mosaic AI Vector Search retrieval
 # databricks-genie                # Genie autonomous data tasks (via databricks-sdk)
 

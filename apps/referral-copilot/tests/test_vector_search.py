@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 APP_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = APP_ROOT.parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
 from src.backend.config import BackendConfig  # noqa: E402
@@ -66,6 +67,13 @@ class VectorSearchLazyInitTests(unittest.TestCase):
 
 
 class VectorSearchRetrieveTests(unittest.TestCase):
+    def test_searchable_table_preserves_embedding_text_and_raw_receipts(self) -> None:
+        pipeline = (REPO_ROOT / "flatten_data.py").read_text(encoding="utf-8")
+
+        self.assertIn("AS search_text", pipeline)
+        self.assertIn("source.capability AS raw_capability", pipeline)
+        self.assertIn("source.latitude", pipeline)
+
     def test_retrieve_queries_configured_columns_and_parses_rows(self) -> None:
         client = VectorSearchClient(_configured())
         fake_index = FakeIndex(
@@ -84,6 +92,9 @@ class VectorSearchRetrieveTests(unittest.TestCase):
         self.assertEqual(call["num_results"], 5)
         self.assertIn("capabilities", call["columns"])
         self.assertIn("data_quality", call["columns"])
+        self.assertIn("raw_capability", call["columns"])
+        self.assertIn("latitude", call["columns"])
+        self.assertIn("operator_type", call["columns"])
 
     def test_retrieve_omits_location_from_query_when_absent(self) -> None:
         client = VectorSearchClient(_configured())

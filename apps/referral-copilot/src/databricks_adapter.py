@@ -298,11 +298,15 @@ class PlanStore(Protocol):
 
     def get_plan(self, plan_id: str) -> dict[str, object] | None: ...
 
+    def list_plans(self) -> tuple[dict[str, object], ...]: ...
+
     def save_feedback(
         self, plan_id: str, feedback: Mapping[str, object]
     ) -> dict[str, object]: ...
 
     def list_feedback(self, plan_id: str) -> tuple[dict[str, object], ...]: ...
+
+    def delete_plan(self, plan_id: str) -> bool: ...
 
 
 class SessionLocalPlanStore:
@@ -341,6 +345,9 @@ class SessionLocalPlanStore:
         saved = self._plans().get(_text(plan_id))
         return deepcopy(saved) if saved is not None else None
 
+    def list_plans(self) -> tuple[dict[str, object], ...]:
+        return tuple(deepcopy(plan) for plan in reversed(tuple(self._plans().values())))
+
     def save_feedback(
         self, plan_id: str, feedback: Mapping[str, object]
     ) -> dict[str, object]:
@@ -355,6 +362,12 @@ class SessionLocalPlanStore:
     def list_feedback(self, plan_id: str) -> tuple[dict[str, object], ...]:
         entries = self._feedback().get(_text(plan_id), [])
         return tuple(deepcopy(entry) for entry in entries)
+
+    def delete_plan(self, plan_id: str) -> bool:
+        normalised_plan_id = _text(plan_id)
+        existed = self._plans().pop(normalised_plan_id, None) is not None
+        self._feedback().pop(normalised_plan_id, None)
+        return existed
 
 
 class FallbackPlanStore:
@@ -384,6 +397,9 @@ class FallbackPlanStore:
     def get_plan(self, plan_id: str) -> dict[str, object] | None:
         return self._run("get_plan", plan_id)  # type: ignore[return-value]
 
+    def list_plans(self) -> tuple[dict[str, object], ...]:
+        return self._run("list_plans")  # type: ignore[return-value]
+
     def save_feedback(
         self, plan_id: str, feedback: Mapping[str, object]
     ) -> dict[str, object]:
@@ -391,3 +407,6 @@ class FallbackPlanStore:
 
     def list_feedback(self, plan_id: str) -> tuple[dict[str, object], ...]:
         return self._run("list_feedback", plan_id)  # type: ignore[return-value]
+
+    def delete_plan(self, plan_id: str) -> bool:
+        return self._run("delete_plan", plan_id)  # type: ignore[return-value]

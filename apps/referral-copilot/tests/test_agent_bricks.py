@@ -23,6 +23,15 @@ def _configured() -> BackendConfig:
 RICH_ROW = {
     "unique_id": "patna-district-01",
     "name": "Patna District Care Centre",
+    "latitude": 25.5941,
+    "longitude": 85.1376,
+    "address_city": "Patna",
+    "operator_type": "public",
+    "facility_type": "hospital",
+    "raw_capability": '["daily outpatient cardiology OPD, 9am-1pm", "24-hour emergency intake"]',
+    "raw_procedure": '["ECG performed on site"]',
+    "raw_equipment": "[]",
+    "raw_description": "ramp access at main entrance",
     "specialties": ["Cardiology", "General medicine"],
     "capabilities": [
         {
@@ -63,6 +72,7 @@ SPARSE_ROW = {
 CONFLICTING_ROW = {
     "unique_id": "conflicting-03",
     "name": "Conflicting Records Facility",
+    "raw_capability": '["specialist clinics run on weekdays"]',
     "specialties": ["Cardiology"],
     "capabilities": [
         {"claim": "Cardiology outpatient clinic", "evidence": ["specialist clinics run on weekdays"]}
@@ -88,7 +98,9 @@ class AvailabilityTests(unittest.TestCase):
         client = AgentBricksClient(BackendConfig())
 
         self.assertTrue(client.available())
-        [candidate] = client.assess_claims([RICH_ROW], capability="cardiology")
+        [candidate] = client.assess_claims(
+            [RICH_ROW], capability="cardiology", location="Patna"
+        )
         self.assertEqual(candidate.facility_id, "patna-district-01")
 
 
@@ -96,15 +108,29 @@ class MapperTests(unittest.TestCase):
     def test_matched_claim_with_evidence_is_documented(self) -> None:
         client = AgentBricksClient(_configured())
 
-        [candidate] = client.assess_claims([RICH_ROW], capability="cardiology")
+        [candidate] = client.assess_claims(
+            [RICH_ROW], capability="cardiology", location="Patna"
+        )
 
         self.assertEqual(candidate.facility_id, "patna-district-01")
         self.assertEqual(candidate.display_name, "Patna District Care Centre")
         self.assertEqual(candidate.capability, "cardiology")
         self.assertEqual(candidate.evidence_status, EvidenceStatus.DOCUMENTED)
         self.assertIn("daily outpatient cardiology OPD, 9am-1pm", candidate.source_spans[0])
-        self.assertIsNone(candidate.distance_km)
-        self.assertIsNone(candidate.facility_type)
+        self.assertAlmostEqual(candidate.distance_km, 0.0, places=2)
+        self.assertEqual(candidate.facility_type, "public")
+        self.assertIn("raw_capability [patna-district-01]", candidate.source_spans[0])
+
+    def test_extracted_span_missing_from_raw_row_fails_closed(self) -> None:
+        client = AgentBricksClient(_configured())
+        ungrounded = dict(RICH_ROW)
+        ungrounded["raw_capability"] = '["general outpatient clinic"]'
+
+        [candidate] = client.assess_claims([ungrounded], capability="cardiology")
+
+        self.assertEqual(candidate.evidence_status, EvidenceStatus.NOT_DOCUMENTED)
+        self.assertEqual(candidate.source_spans, ())
+        self.assertIn("evidence_receipt", candidate.missing_fields)
 
     def test_matched_claim_without_evidence_is_not_documented(self) -> None:
         client = AgentBricksClient(_configured())

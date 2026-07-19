@@ -1,58 +1,72 @@
-# AI Search (Vector Search) setup gate
+# AI Search setup gate
 
-> **Superseded input table** (see TODO.md "Decision — Model B adopted"): the
-> steps below were written against Model A's `facility_source_chunks`, which
-> was never built. The real table to index is
-> `workspace.default.facilities_searchable` (one row per facility; see
-> `../flatten_data.py`), keyed by `unique_id` rather than `chunk_id`, with the
-> embedding source drawn from `capabilities`/`procedures`/`equipment`/
-> `facility_facts`/`specialties` instead of a single `literal_source_text`
-> column. The gate checklist and the "semantic similarity is not evidence"
-> guidance below still apply; only the source table/columns must be swapped.
-> `src/backend/vector_search.py::retrieve()` already queries
-> `facilities_searchable` with the real column names.
+The original brief requires Mosaic AI Vector Search (now Databricks AI Search)
+for retrieval across the 10,000 facility rows. The active app queries the
+corrected Model B table built by `extract_data.py` and `flatten_data.py`.
 
-The original brief lists Mosaic AI Vector Search and the technical rubric asks
-whether it is used well. Configure it only after
-`02_build_evidence_tables.py` has created
-`<target_schema>.facility_source_chunks` with:
+## Required source-table contract
 
-- `chunk_id` — primary key;
-- `source_row_id` — row receipt;
-- `source_column` — field receipt;
-- `literal_source_text` — the unmodified source chunk.
+Table: `workspace.default.facilities_searchable`
+
+Required index fields:
+
+- `unique_id` — stable primary key and row receipt;
+- `search_text` — embedding source assembled from facility name and extracted
+  claim groups;
+- `raw_description`, `raw_capability`, `raw_procedure`, `raw_equipment` —
+  original source fields used for literal receipt revalidation;
+- `latitude`, `longitude`, `address_city`, `facility_type`, `operator_type` —
+  distance and preference inputs;
+- extracted specialties/capabilities/procedures/equipment/facts and
+  `data_quality` — candidate interpretation, never ground truth by itself.
+
+Before creating the index, confirm the table has Change Data Feed enabled:
+
+```sql
+ALTER TABLE workspace.default.facilities_searchable
+SET TBLPROPERTIES (delta.enableChangeDataFeed = true);
+```
+
+## Create the endpoint and index
 
 In the Databricks Free Edition UI:
 
-1. Open Catalog Explorer and select `facility_source_chunks`.
-2. Choose **Create -> Vector search index**.
-3. Use a **Delta Sync** index, `chunk_id` as the primary key,
-   `literal_source_text` as the embedding source, and **Triggered** sync for a
-   predictable hackathon demo.
-4. Retain `source_row_id`, `source_column`, and `literal_source_text` in the
-   synced columns.
-5. Sync the index, then add it to the Databricks App as an **AI Search index**
-   resource with `Can select` only.
-6. Give the resource a stable key, for example `facility_evidence_index`, and
-   expose its full index name through `app.yaml` using `valueFrom` only after the
-   workspace owner confirms that key.
+1. Create an AI Search endpoint named exactly `aven-facility-search`.
+2. Create a Delta Sync index over
+   `workspace.default.facilities_searchable`.
+3. Use `unique_id` as the primary key.
+4. Use `search_text` as the embedding source.
+5. Use Triggered sync for a predictable demo.
+6. Retain all fields listed in the source-table contract above.
+7. Sync and wait until the index reports online.
+8. Add the index to the Databricks App with **Can select** and the exact custom
+   resource key `facility-evidence-index`.
 
-Use the index to find candidate source chunks. Semantic similarity is **not**
-evidence by itself. Before a result becomes a facility claim, Aven must still:
+The committed `app.yaml` maps that resource into
+`AVEN_VECTOR_SEARCH_INDEX` and uses the fixed endpoint name above.
 
-1. resolve the chunk to its source row and field;
-2. extract or select the candidate literal span;
-3. verify the span occurs in `literal_source_text`;
-4. evaluate corroboration/conflicts;
-5. show the receipt and uncertainty in the UI.
+## Trust rule
 
-Final proof:
+Semantic similarity is candidate discovery, not evidence. Before a claim can be
+shown as documented, `src/backend/agent_bricks.py`:
 
-- [ ] Index is online and a query returns the row ID, column, and literal text.
-- [ ] A nonsense/absent capability does not become a documented claim merely
-  because a semantically similar chunk was returned.
-- [ ] App service identity can select the index without a personal token.
-- [ ] Retrieval remains usable after a fresh App deployment.
+1. selects the extracted entry matching the requested capability;
+2. finds its evidence span in the preserved original raw field;
+3. emits the raw field and `unique_id` as the receipt;
+4. fails closed to `not_documented` when no literal receipt exists;
+5. retains conflicts and missing fields as visible uncertainty.
 
-Official current setup reference:
-[Create AI Search endpoints and indexes](https://docs.databricks.com/aws/en/vector-search/create-vector-search).
+## Final proof
+
+- [ ] Index is online and returns row ID, raw receipt fields, coordinates, and
+  extracted claim fields.
+- [ ] A nonsense/absent capability does not become documented merely because a
+  similar row was returned.
+- [ ] A deliberately mismatched extracted span becomes `not_documented`.
+- [ ] App service identity can query the index without a personal token.
+- [ ] Retrieval remains live after a fresh App deployment.
+
+Official current references:
+
+- [Create AI Search endpoints and indexes](https://docs.databricks.com/aws/en/ai-search/create-ai-search)
+- [Add an AI Search index to a Databricks App](https://docs.databricks.com/gcp/en/dev-tools/databricks-apps/vector-search)

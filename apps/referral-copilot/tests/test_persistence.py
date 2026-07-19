@@ -36,6 +36,13 @@ class InMemoryPostgresExecutor:
             owner_id, plan_id, payload = map(str, parameters)
             self.plans[(owner_id, plan_id)] = payload
             return []
+        if normalised.startswith("select payload") and "order by updated_at" in normalised:
+            owner_id = str(parameters[0])
+            return [
+                {"payload": payload}
+                for (row_owner, _), payload in self.plans.items()
+                if row_owner == owner_id
+            ]
         if normalised.startswith("select payload"):
             owner_id, plan_id = map(str, parameters)
             payload = self.plans.get((owner_id, plan_id))
@@ -61,6 +68,16 @@ class InMemoryPostgresExecutor:
 
 
 class PersistentPlanStoreTests(unittest.TestCase):
+    def test_lists_only_the_signed_in_owners_unexpired_plans(self) -> None:
+        database = InMemoryPostgresExecutor()
+        owner_a = PersistentSqlPlanStore(database, owner_id="owner-a")
+        owner_b = PersistentSqlPlanStore(database, owner_id="owner-b")
+        owner_a.save_plan({"plan_id": "a-1", "selected_facility_id": "facility-a"})
+        owner_b.save_plan({"plan_id": "b-1", "selected_facility_id": "facility-b"})
+
+        self.assertEqual(owner_a.list_plans()[0]["plan_id"], "a-1")
+        self.assertNotIn("facility-b", repr(owner_a.list_plans()))
+
     def test_plan_survives_new_store_instance_for_same_owner(self) -> None:
         database = InMemoryPostgresExecutor()
         first = PersistentSqlPlanStore(database, owner_id="owner-a")

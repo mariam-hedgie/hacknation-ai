@@ -24,6 +24,15 @@ _COLUMNS = (
     "equipment",
     "facility_facts",
     "data_quality",
+    "raw_description",
+    "raw_capability",
+    "raw_procedure",
+    "raw_equipment",
+    "latitude",
+    "longitude",
+    "address_city",
+    "facility_type",
+    "operator_type",
 )
 
 

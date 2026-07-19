@@ -6,12 +6,18 @@ APP_DIR = Path(__file__).resolve().parents[1]
 
 
 class DeploymentConfigTests(unittest.TestCase):
-    def test_streamlit_uses_databricks_managed_host_and_port(self) -> None:
+    def test_react_api_host_uses_managed_resources(self) -> None:
         config = (APP_DIR / "app.yaml").read_text(encoding="utf-8")
+        runner = (APP_DIR / "run_app.py").read_text(encoding="utf-8")
+        package = (APP_DIR / "package.json").read_text(encoding="utf-8")
 
-        self.assertIn("command: ['streamlit', 'run', 'app.py']", config)
-        self.assertNotIn("--server.port", config)
-        self.assertNotIn("--server.address", config)
+        self.assertIn("command: ['python', 'run_app.py']", config)
+        self.assertIn("valueFrom: postgres", config)
+        self.assertIn("valueFrom: identity-pepper", config)
+        self.assertIn("value: 'aven-facility-search'", config)
+        self.assertIn("valueFrom: facility-evidence-index", config)
+        self.assertIn('os.getenv("DATABRICKS_APP_PORT"', runner)
+        self.assertIn('"build": "npm --workspace frontend run build"', package)
 
 
 if __name__ == "__main__":

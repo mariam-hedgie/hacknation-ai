@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppState } from "../state/AppState";
 import { FEATURE_TILES_EN, STEP_KEYS, STRINGS, TASK_QUESTIONS, scaleLabel, tileCopy, tx } from "../i18n/copy";
@@ -7,7 +7,13 @@ import { api, type ServiceStatus } from "../api";
 import { Stepper } from "../components/Stepper";
 
 type Urgency = "Routine" | "Soon" | "Urgent";
-type Level = "Low" | "Medium" | "High";
+const TRAVEL_MODES = ["walk", "bicycle", "motorbike", "bus", "train", "car", "taxi", "plane", "ambulance"];
+
+function defaultArrivalDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 3);
+  return date.toISOString().slice(0, 10);
+}
 
 export function Intake() {
   const navigate = useNavigate();
@@ -22,19 +28,30 @@ export function Intake() {
   const [labOrder, setLabOrder] = useState<"yes" | "unsure" | "no">("unsure");
   const [message, setMessage] = useState("");
   const [urgency, setUrgency] = useState<Urgency>("Soon");
-  const [travel, setTravel] = useState<Level>("Medium");
-  const [budget, setBudget] = useState<Level>("High");
+  const [maxDistance, setMaxDistance] = useState("100");
+  const [travelModes, setTravelModes] = useState<string[]>(["bus", "train"]);
+  const [travelBudget, setTravelBudget] = useState("");
+  const [careBudget, setCareBudget] = useState("");
+  const [arrivalDate, setArrivalDate] = useState(defaultArrivalDate);
   const [preference, setPreference] = useState<"Either" | "Public" | "Private">("Either");
   const [prefLanguage, setPrefLanguage] = useState("");
   const [emergencyChecked, setEmergencyChecked] = useState(false);
   const [status, setStatus] = useState<ServiceStatus | null>(null);
+  const [allowOpenAI, setAllowOpenAI] = useState(false);
+  const [structuring, setStructuring] = useState(false);
+  const [structureMessage, setStructureMessage] = useState("");
+  const [voiceConsent, setVoiceConsent] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    const preset = (location.state as { careTask?: string } | null)?.careTask;
+    const presetState = location.state as { careTask?: string; emergency?: boolean } | null;
+    const preset = presetState?.careTask;
     if (preset) setCareTask(preset);
-    // Reset the emergency checkbox on every fresh entry into intake.
-    setEmergencyChecked(false);
-    setEmergencyReported(false);
+    setEmergencyChecked(Boolean(presetState?.emergency));
+    setEmergencyReported(Boolean(presetState?.emergency));
   }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -43,6 +60,71 @@ export function Intake() {
 
   const meta = tileCopy(language, careTask);
 
+  const toggleTravelMode = (mode: string) => {
+    setTravelModes((current) =>
+      current.includes(mode) ? current.filter((item) => item !== mode) : [...current, mode],
+    );
+  };
+
+  const structureWithOpenAI = async () => {
+    setStructureMessage("");
+    if (!message.trim()) {
+      setStructureMessage("Describe what you need in the notes box first.");
+      return;
+    }
+    setStructuring(true);
+    try {
+      const draft = await api.structureIntake(message);
+      setCareTask(draft.care_task);
+      if (draft.capability) setDetail(draft.capability);
+      if (draft.location) setLocationInput(draft.location);
+      setUrgency((draft.urgency[0].toUpperCase() + draft.urgency.slice(1)) as Urgency);
+      if (draft.travel_modes.length) setTravelModes(draft.travel_modes);
+      if (draft.language) setPrefLanguage(draft.language);
+      setStructureMessage(draft.clarification_question || "Draft filled. Review every field before continuing.");
+    } catch {
+      setStructureMessage("OpenAI structuring is not configured right now. Continue with the form.");
+    } finally {
+      setStructuring(false);
+    }
+  };
+
+  const startRecording = async () => {
+    setVoiceMessage("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const encoded = String(reader.result).split(",")[1] || "";
+          try {
+            const transcript = await api.transcribe(encoded, language);
+            setMessage(transcript.text);
+            setVoiceMessage("Transcript added to your notes. Read and correct it before continuing.");
+          } catch {
+            setVoiceMessage("Transcription failed. Use typed input.");
+          }
+        };
+        reader.readAsDataURL(blob);
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setVoiceMessage("Microphone access was not available. Use typed input.");
+    }
+  };
+
+  const stopRecording = () => {
+    recorderRef.current?.stop();
+    setRecording(false);
+  };
+
   const submit = () => {
     setDraftRequest({
       message: message || null,
@@ -50,14 +132,19 @@ export function Intake() {
       capability: detail || message || "the care need you described",
       location: locationInput || "not provided",
       urgency: urgency.toLowerCase(),
-      travel_tolerance: travel.toLowerCase(),
-      budget_sensitivity: budget.toLowerCase(),
+      travel_tolerance: Number(maxDistance) <= 25 ? "low" : Number(maxDistance) <= 150 ? "medium" : "high",
+      budget_sensitivity: careBudget ? "high" : "medium",
       facility_preference: preference.toLowerCase(),
       language: prefLanguage || null,
       medication_name: careTask === "refill" ? detail : null,
       has_current_prescription: careTask === "refill" ? hasPrescription : null,
       has_clinician_order: careTask === "lab" ? { yes: true, no: false, unsure: null }[labOrder] : null,
       emergency_warning_reported: emergencyReported,
+      max_distance_km: Number(maxDistance) || null,
+      travel_modes: travelModes,
+      travel_budget_rupees: travelBudget ? Number(travelBudget) : null,
+      care_budget_rupees: careBudget ? Number(careBudget) : null,
+      required_arrival_date: arrivalDate || null,
     });
     navigate("/confirm");
   };
@@ -111,12 +198,26 @@ export function Intake() {
         <EmergencyPanel onRestart={() => setEmergencyChecked(false)} />
       ) : (
         <>
-          {status && <p className="fact">🎤 {status.voice_message}</p>}
+          {status && !status.voice_available && <p className="fact">Voice input: {status.voice_message}</p>}
 
           <div className="form-card reveal visible">
             <div className="section-title" style={{ marginBottom: "1rem" }}>
               {tx(language, "specifics")}
             </div>
+
+            {status?.voice_available && (
+              <details className="disclosure">
+                <summary>Optional voice input</summary>
+                <label className="checkbox-row">
+                  <input type="checkbox" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} />
+                  <span>I agree to send this recording to ElevenLabs for transcription.</span>
+                </label>
+                <button className="btn" disabled={!voiceConsent} onClick={recording ? stopRecording : startRecording}>
+                  {recording ? "Stop recording" : "Transcribe for review"}
+                </button>
+                {voiceMessage && <div className="alert alert-info">{voiceMessage}</div>}
+              </details>
+            )}
 
             <div className="field">
               <label>{meta.detail_label}</label>
@@ -170,6 +271,21 @@ export function Intake() {
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={tx(language, "extra_ph")} />
             </div>
 
+            <details className="disclosure">
+              <summary>Optional: Structure with OpenAI</summary>
+              <p className="hint">
+                This only turns your own notes into an editable draft. It does not diagnose, search, or choose a hospital.
+              </p>
+              <label className="checkbox-row">
+                <input type="checkbox" checked={allowOpenAI} onChange={(e) => setAllowOpenAI(e.target.checked)} />
+                <span>I agree to send only this note to OpenAI and review the result.</span>
+              </label>
+              <button className="btn" disabled={!allowOpenAI || structuring} onClick={structureWithOpenAI}>
+                {structuring ? "Structuring…" : "Fill an editable draft"}
+              </button>
+              {structureMessage && <div className="alert alert-info">{structureMessage}</div>}
+            </details>
+
             <div className="section-title" style={{ margin: "1.4rem 0 1rem" }}>
               {tx(language, "prefs")}
             </div>
@@ -185,22 +301,16 @@ export function Intake() {
                 onChange={setUrgency}
                 labelFor={(v) => scaleLabel(language, v)}
               />
-              <SliderField
-                label={tx(language, "travel_label")}
-                options={["Low", "Medium", "High"] as const}
-                value={travel}
-                onChange={setTravel}
-                labelFor={(v) => scaleLabel(language, v)}
-              />
+              <div className="field">
+                <label>Required arrival date</label>
+                <input type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} />
+              </div>
             </div>
             <div className="field-row">
-              <SliderField
-                label={tx(language, "budget_label")}
-                options={["Low", "Medium", "High"] as const}
-                value={budget}
-                onChange={setBudget}
-                labelFor={(v) => scaleLabel(language, v)}
-              />
+              <div className="field">
+                <label>Maximum travel distance (km)</label>
+                <input type="number" min="1" max="5000" value={maxDistance} onChange={(e) => setMaxDistance(e.target.value)} />
+              </div>
               <div className="field">
                 <label>{tx(language, "facility_label")}</label>
                 <div className="radio-row">
@@ -215,6 +325,27 @@ export function Intake() {
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+            <div className="field">
+              <label>Travel modes</label>
+              <div className="radio-row">
+                {TRAVEL_MODES.map((mode) => (
+                  <button key={mode} type="button" className={`radio-pill ${travelModes.includes(mode) ? "selected" : ""}`} onClick={() => toggleTravelMode(mode)}>
+                    {mode}
+                  </button>
+                ))}
+              </div>
+              <p className="hint">Select every mode you could realistically use. Ambulance service is always verified separately.</p>
+            </div>
+            <div className="field-row">
+              <div className="field">
+                <label>Travel budget (₹, optional)</label>
+                <input type="number" min="0" value={travelBudget} onChange={(e) => setTravelBudget(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Care budget (₹, optional)</label>
+                <input type="number" min="0" value={careBudget} onChange={(e) => setCareBudget(e.target.value)} />
               </div>
             </div>
             <div className="field">

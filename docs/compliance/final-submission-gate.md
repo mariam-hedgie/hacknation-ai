@@ -3,6 +3,22 @@
 The app is a **GO** only when every required box below contains evidence. Do not
 replace a missing check with “code exists.”
 
+## Repository preflight completed
+
+- [x] React production build is served by the same FastAPI host as `/api/*`.
+- [x] No browser-supplied owner ID or custom email login is used.
+- [x] Databricks proxy identity becomes a pseudonymous owner ID on the server.
+- [x] Lakebase uses managed resource coordinates and rotating OAuth database
+  credentials; no database password is stored in source or browser state.
+- [x] Save/list/delete/feedback queries bind `owner_id`, and persisted JSON is
+  minimized to the decision, next steps, override, and optional note.
+- [x] Local fallback is explicitly labelled process-local and cannot activate
+  inside a Databricks deployment.
+- [x] Active retrieval revalidates extracted evidence against preserved raw
+  source fields and emits row/column receipts; fabricated spans fail closed.
+- [x] Searchable rows preserve coordinates and validated operator type; known
+  golden-path origins receive an explicitly straight-line distance.
+
 ## Required
 
 - [ ] Workspace is Databricks Free Edition, not a paid/enterprise workspace.
@@ -13,6 +29,7 @@ replace a missing check with “code exists.”
 - [ ] Weak/incomplete record review completed by: __________
 - [ ] Vector Search index attached and live retrieval revalidates literal spans.
 - [ ] Lakebase Autoscaling resource attached.
+- [ ] `identity-pepper` secret resource attached and readable by the App.
 - [ ] Save -> fresh browser/new session -> reopen test passes.
 - [ ] Databricks OAuth/CAN USE access and owner isolation pass every check in
   `docs/security/login-and-persistence-audit.md`.

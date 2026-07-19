@@ -257,6 +257,20 @@ WHERE owner_id = %s AND plan_id = %s AND expires_at > CURRENT_TIMESTAMP
             return None
         return _decode_mapping(rows[0].get("payload"), "plan")
 
+    def list_plans(self) -> tuple[dict[str, object], ...]:
+        """List only this owner's unexpired plans, newest first."""
+
+        rows = self._executor.execute(
+            f"""
+SELECT payload
+FROM {self.plans_table}
+WHERE owner_id = %s AND expires_at > CURRENT_TIMESTAMP
+ORDER BY updated_at DESC, plan_id
+""".strip(),
+            (self._owner_id,),
+        )
+        return tuple(_decode_mapping(row.get("payload"), "plan") for row in rows)
+
     def save_feedback(
         self, plan_id: str, feedback: Mapping[str, object]
     ) -> dict[str, object]:

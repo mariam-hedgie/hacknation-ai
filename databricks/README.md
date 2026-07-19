@@ -1,33 +1,44 @@
-# Databricks evidence pipeline
+# Databricks evidence and persistence setup
 
-These files implement the repository side of the Data Legend data contract. The
-challenge dataset itself stays in Databricks and must never be committed here.
+The challenge dataset stays in Databricks and must never be committed here.
+Use the complete teammate checklist in
+[`../docs/databricks-team-handoff.md`](../docs/databricks-team-handoff.md).
 
-Run in this order in the **same Databricks Free Edition workspace** that hosts
-the final app:
+## Active application path
 
-1. Subscribe to the organizer-linked Marketplace dataset from page 4 of the
-   original brief.
-2. Run `01_ingest_and_profile.sql`; replace the two angle-bracket identifiers
-   once, after inspecting the source schema.
-3. In `02_build_evidence_tables.py`, set the source table, target schema, and
-   actual column mapping in the notebook widgets. Run every cell.
-4. Run `03_build_trust_assessment.sql` after replacing `<TARGET_SCHEMA>`.
-5. Run `04_seed_evaluation_cases.sql` after replacing `<TARGET_SCHEMA>`.
-6. Complete the index gate in `05_vector_search_setup.md`.
-7. Run `lakebase_schema.sql` in the Lakebase SQL editor, not the lakehouse SQL
-   editor.
+The deployed React app currently queries:
 
-Before wiring login or saved state, complete
-[`../docs/security/login-and-persistence-audit.md`](../docs/security/login-and-persistence-audit.md).
-The App must use Databricks OAuth identity, a secret-backed pseudonymous owner,
-and the owner-scoped schema; never use the legacy plan-ID-only table.
+```text
+official facilities table
+  -> ../extract_data.py
+  -> workspace.default.facilities_consolidated
+  -> ../flatten_data.py
+  -> workspace.default.facilities_searchable
+  -> AI Search
+  -> literal raw-field validator
+  -> explainable shortlist
+```
 
-Do not call the pipeline complete until the output checks at the bottom of each
-file pass on the provided 10,000-record dataset. A code file in GitHub is not
-proof that its corresponding Databricks table exists.
+Run `05_vector_search_setup.md` after rebuilding the corrected searchable table.
+Run `lakebase_schema.sql` only in the Lakebase SQL editor.
 
-The mapping step is intentionally explicit. The PDF names concepts and example
-coverage but the live subscribed table is authoritative for exact column names
-and types. If a requested fact is absent, preserve it as `not documented`; do
-not manufacture a replacement.
+The numbered `01`–`04` files preserve the alternative normalized evidence-table
+design and its audit queries. They are useful reference/evaluation material but
+are not the table shape queried by the current `src/backend/vector_search.py`.
+Do not run both architectures and assume the app reads whichever completed.
+
+## Non-negotiable gates
+
+- Preserve original raw source fields and `unique_id` in every searchable row.
+- Accept a displayed claim only when its cited span occurs literally in the
+  preserved raw field.
+- Treat absent/invalid data as unknown, never unavailable or zero.
+- Validate coordinates and operator type; do not repair misaligned source rows
+  by guessing.
+- Use the App service principal and attached resources, never a committed PAT.
+- Persist only minimized user decisions in owner-scoped Lakebase tables.
+- Complete every live proof item in
+  [`../docs/compliance/final-submission-gate.md`](../docs/compliance/final-submission-gate.md).
+
+Local code or a seeded card is not proof of the official 10,000-row dataset,
+live AI Search, or cross-session Lakebase persistence.

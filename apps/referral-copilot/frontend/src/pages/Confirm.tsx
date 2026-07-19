@@ -61,7 +61,13 @@ export function Confirm() {
 
       <details className="disclosure">
         <summary>{tx(language, "confirm_see_fields")}</summary>
-        <pre className="sql-block">{JSON.stringify(draftRequest, null, 2)}</pre>
+        <div>
+          <p className="fact"><strong>Arrive by:</strong> {draftRequest.required_arrival_date || "Not specified"}</p>
+          <p className="fact"><strong>Travel modes:</strong> {draftRequest.travel_modes?.join(", ") || "Not specified"}</p>
+          <p className="fact"><strong>Maximum distance:</strong> {draftRequest.max_distance_km ? `${draftRequest.max_distance_km} km` : "Not specified"}</p>
+          <p className="fact"><strong>Travel budget:</strong> {draftRequest.travel_budget_rupees != null ? `₹${draftRequest.travel_budget_rupees}` : "Not specified"}</p>
+          <p className="fact"><strong>Care budget:</strong> {draftRequest.care_budget_rupees != null ? `₹${draftRequest.care_budget_rupees}` : "Not specified"}</p>
+        </div>
       </details>
       <p className="hint">{tx(language, "confirm_caption")}</p>
 

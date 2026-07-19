@@ -16,6 +16,17 @@ BEGIN
     RAISE EXCEPTION
       'Unsafe legacy saved_care_plans schema: owner_id is missing. Migrate or recreate it.';
   END IF;
+  IF to_regclass('access_feedback') IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = current_schema()
+         AND table_name = 'access_feedback'
+         AND column_name = 'owner_id'
+     ) THEN
+    RAISE EXCEPTION
+      'Unsafe legacy access_feedback schema: owner_id is missing. Migrate or recreate it.';
+  END IF;
 END $$;
 
 CREATE TABLE IF NOT EXISTS saved_care_plans (

@@ -19,7 +19,7 @@ export function Landing() {
             <LogoPulse />
             {strings.eyebrow}
           </span>
-          <h1 className="display">Aven</h1>
+          <h1 className="display">aven</h1>
           <EcgDivider />
           <p className="hero-tagline" dangerouslySetInnerHTML={{ __html: tx(language, "hero_tagline") }} />
           <p className="hero-sub">{tx(language, "hero_sub")}</p>

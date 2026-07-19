@@ -1,23 +1,26 @@
 import { useState } from "react";
-import type { PlanOption } from "../api";
+import type { PlanOption, PlanRequestBody } from "../api";
 import { EvidenceBadge } from "./Evidence";
 import { EnrichmentView } from "./EnrichmentView";
 import { EVIDENCE_STATUS_KEYS, useGovernedCopy } from "../i18n/governed";
 import { OPTION_ICONS } from "../i18n/copy";
 import { Reveal } from "./Reveal";
+import { JourneyPanel } from "./JourneyPanel";
 
 interface Props {
   index: number;
   option: PlanOption;
+  request: PlanRequestBody;
   rating: number | null;
   isBlocked: boolean;
-  onSave: () => void;
+  onSave: (note: string) => Promise<boolean>;
   onBlock: () => void;
 }
 
-export function OptionCard({ index, option, rating, isBlocked, onSave, onBlock }: Props) {
+export function OptionCard({ index, option, request, rating, isBlocked, onSave, onBlock }: Props) {
   const { get } = useGovernedCopy();
-  const [saved, setSaved] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [note, setNote] = useState("");
   const evidenceStatus = option.evidence_status ?? "not_documented";
   const icon = OPTION_ICONS[option.label] ?? "📍";
   const rank = Math.min(index, 2);
@@ -50,17 +53,29 @@ export function OptionCard({ index, option, rating, isBlocked, onSave, onBlock }
         </p>
 
         <EnrichmentView enrichment={option.enrichment} />
+        <JourneyPanel option={option} request={request} />
+
+        <details className="disclosure">
+          <summary>Add a note before saving (optional)</summary>
+          <div className="field">
+            <label>Private planning note</label>
+            <textarea maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} placeholder="For example: verify wheelchair entrance before travel" />
+            <p className="hint">Only this decision and note are retained. Your health intake, location, medication, voice, and transcript are not saved.</p>
+          </div>
+        </details>
 
         <div className="button-cols">
           <button
             className="btn"
-            onClick={() => {
-              onSave();
-              setSaved(true);
+            disabled={saveStatus === "saving" || saveStatus === "saved"}
+            onClick={async () => {
+              setSaveStatus("saving");
+              setSaveStatus(await onSave(note) ? "saved" : "error");
             }}
           >
-            {saved ? "Saved ✓" : "Save plan"}
+            {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : "Save plan"}
           </button>
+          {saveStatus === "error" && <span className="save-error">Not saved. Secure storage did not confirm the write.</span>}
           <button className="btn" onClick={onBlock} disabled={isBlocked}>
             {isBlocked ? "Blocked" : "🚫 Never refer me here"}
           </button>

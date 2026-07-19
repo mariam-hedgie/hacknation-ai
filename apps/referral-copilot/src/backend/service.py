@@ -116,7 +116,9 @@ def _live_plan_routes(request: dict[str, Any]) -> list[dict[str, Any]] | None:
     with tracing.span(
         "agent_bricks.assess_claims", inputs={"capability": capability, "row_count": len(rows)}
     ) as assess_span:
-        candidates = _agent.assess_claims(rows, capability=capability)
+        candidates = _agent.assess_claims(
+            rows, capability=capability, location=str(location or "")
+        )
         assess_span.set_outputs(
             {
                 "candidate_count": len(candidates) if candidates is not None else 0,
@@ -187,7 +189,12 @@ def _intake_from_request(request: dict[str, Any]) -> IntakeRequest:
 def _ranked_to_display(option: RankedOption, index: int) -> dict[str, Any]:
     """Convert a domain RankedOption into the card dict the UI renders."""
     c = option.candidate
-    distance = f"{c.distance_km:g} km away" if c.distance_km is not None else "Distance not documented — confirm before travel."
+    distance = (
+        f"approximately {c.distance_km:g} km straight-line from the named city centre; "
+        "open Maps for route distance"
+        if c.distance_km is not None
+        else "Distance not documented — confirm before travel."
+    )
     unknowns = ", ".join(f.replace("_", " ") for f in c.missing_fields) or "None flagged by the evidence pipeline."
     evidence = " | ".join(c.source_spans) if c.source_spans else "No literal source span was verified for this claim."
     return {

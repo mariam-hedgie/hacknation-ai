@@ -10,10 +10,12 @@ App permissions. The application should consume the authenticated proxy user,
 turn it into a pseudonymous owner ID, and scope every Lakebase operation to that
 owner.
 
-The local app currently stores plans only in Streamlit session state. That data
-is not durable and should be treated as disposable demo state. The new durable
-boundary and schema are safe by construction, but are **not deployment-verified
-until the UI is wired to them in Databricks Free Edition**.
+The React app now uses authenticated FastAPI save/list/delete/feedback routes.
+In Databricks mode those routes derive a pseudonymous owner from the trusted
+proxy header and use owner-scoped Lakebase SQL with rotating OAuth database
+credentials. Local-demo state is process-local and visibly disposable. The
+durable path is **not deployment-verified until its cross-session and two-user
+checks pass in Databricks Free Edition**.
 
 ## Findings and remediations
 
@@ -28,8 +30,10 @@ until the UI is wired to them in Databricks Free Edition**.
 | Free-text safety | Persistence accepted arbitrary feedback/status content up to the overall JSON limit | Statuses are allow-listed; notes are plain text, limited to 500 characters, and reject control characters | Test PASS |
 | SQL injection | Values were already bound | Owner IDs and all user values remain parameters; table names are strict identifiers | Test PASS |
 | Record deletion | No deletion operation | An owner-scoped delete removes the plan and cascades only its feedback | Test PASS |
-| Retention | Records had no expiry | Plans expire after 30 days and `purge_expired()` provides the deletion operation | Code/schema PASS; scheduled execution required |
+| Retention | Records had no expiry | Plans expire after 30 days; safe app initialization purges expired plans and cascades their feedback | Code/schema PASS; live startup check required |
 | Legacy schema | Re-running `CREATE TABLE IF NOT EXISTS` could silently preserve the unsafe plan-ID-only table | Schema now aborts when it detects that legacy table without `owner_id` | SQL review PASS; workspace check required |
+| React persistence wiring | UI previously used a browser email/local JSON profile path | Custom login/profile endpoints were removed; My plans uses authenticated `/api/plans`, and save is shown complete only after server confirmation | Test/build PASS; live Lakebase check required |
+| Database credentials | No production executor existed | The server consumes managed `PG*` coordinates and requests a fresh App service-principal OAuth database token for each operation | Test PASS; workspace permission check required |
 
 ## Required Databricks wiring
 
@@ -40,21 +44,23 @@ until the UI is wired to them in Databricks Free Edition**.
 3. Create at least 32 random bytes for `AVEN_IDENTITY_PEPPER`, store it as a
    Databricks secret resource, and expose it with `valueFrom`. Never put it in
    Git or plain `app.yaml`.
-4. Read the request headers inside the Databricks App and call:
+4. The FastAPI request boundary already calls:
 
    ```python
    identity = resolve_identity(request_headers, os.environ)
    store = PersistentSqlPlanStore(executor, owner_id=identity.owner_id)
    ```
 
-   In Streamlit, obtain headers from the framework request context supported by
-   the deployed version. Do not let the browser submit `owner_id`.
-5. Run `databricks/lakebase_schema.sql`. If it raises the legacy-schema error,
+   Do not add an `owner_id` field to any browser request.
+5. Attach Lakebase under the resource key `postgres`. App startup safely creates
+   the same schema as `databricks/lakebase_schema.sql`; if either path raises the legacy-schema error,
    migrate or recreate the hackathon-only tables; do not bypass the error.
 6. Do not persist the original conversation, symptom text, medication name,
    home address, email, voice audio, transcript, or API/tool logs. Persist only
    the shortlist decision and optional user-authored note.
-7. Schedule `purge_expired()` or an equivalent parameter-free Lakebase job.
+7. Verify the app-start `purge_expired()` call can delete an expired synthetic
+   plan. A separate scheduled Lakebase job is optional resilience, not a reason
+   to extend retention.
 8. Keep detailed exceptions server-side and show a generic login/save failure
    to the user. Never log headers, plan payloads, notes, or database credentials.
 

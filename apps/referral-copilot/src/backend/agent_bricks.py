@@ -19,14 +19,14 @@ facility. `assess_claims` is therefore a pure mapper, not an LLM call:
 
 Returns None when unavailable so the service falls back to seeded demo options.
 
-Not done here (documented limit, see enrichment._claim_evidence and TODO.md
-brief stretch #2 "Validator"): nothing re-verifies an extracted span against
-the facility's raw record — spans are trusted as literal once `evidence_status`
-confirms the span is contained in its own claim's source text.
+The mapper re-verifies every extracted span against the preserved original
+dataset field. A span without that row/column receipt fails closed as
+``not_documented`` and cannot enter the shortlist as a confirmed match.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from .. import enrichment
@@ -71,8 +71,82 @@ def _find_matching_entry(
     return None
 
 
-def _source_spans(group_key: str, entry: dict[str, Any]) -> tuple[str, ...]:
-    return tuple(f"{group_key}: {span}" for span in entry.get("evidence", []))
+_RAW_FIELDS = {
+    "capabilities": ("raw_capability",),
+    "procedures": ("raw_procedure",),
+    "equipment": ("raw_equipment",),
+    "facility_facts": ("raw_description", "raw_capability", "raw_procedure"),
+}
+
+_CITY_CENTRES = {
+    "bengaluru": (12.9716, 77.5946),
+    "bangalore": (12.9716, 77.5946),
+    "delhi": (28.6139, 77.2090),
+    "jaipur": (26.9124, 75.7873),
+    "mumbai": (19.0760, 72.8777),
+    "patna": (25.5941, 85.1376),
+    "pune": (18.5204, 73.8567),
+}
+
+
+def _verified_receipts(
+    row: dict[str, Any], group_key: str, entry: dict[str, Any]
+) -> tuple[tuple[str, str, str], ...]:
+    """Return only spans found literally in the original dataset field."""
+
+    receipts: list[tuple[str, str, str]] = []
+    for span in entry.get("evidence", []):
+        for raw_field in _RAW_FIELDS.get(group_key, ()):
+            source_text = _text(row.get(raw_field))
+            if source_text and _normalise(span) in _normalise(source_text):
+                receipts.append((raw_field, source_text, _text(span)))
+                break
+    return tuple(receipts)
+
+
+def _coordinate(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
+def _origin_coordinates(location: str | None) -> tuple[float, float] | None:
+    normalized = _normalise(location or "")
+    for city, coordinates in _CITY_CENTRES.items():
+        if city in normalized:
+            return coordinates
+    return None
+
+
+def _straight_line_distance_km(
+    location: str | None, row: dict[str, Any]
+) -> float | None:
+    origin = _origin_coordinates(location)
+    latitude = _coordinate(row.get("latitude"))
+    longitude = _coordinate(row.get("longitude"))
+    if origin is None or latitude is None or longitude is None:
+        return None
+    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+        return None
+    lat1, lon1 = map(math.radians, origin)
+    lat2, lon2 = math.radians(latitude), math.radians(longitude)
+    delta_lat, delta_lon = lat2 - lat1, lon2 - lon1
+    haversine = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lon / 2) ** 2
+    )
+    return round(6371.0 * 2 * math.asin(math.sqrt(haversine)), 1)
+
+
+def _facility_type(row: dict[str, Any]) -> str | None:
+    operator = _normalise(_text(row.get("operator_type")))
+    if operator in {"public", "private"}:
+        return operator
+    if operator == "government":
+        return "public"
+    return None
 
 
 def _missing_claim_groups(normalized: dict[str, Any]) -> tuple[str, ...]:
@@ -93,38 +167,59 @@ class AgentBricksClient:
         return True
 
     def assess_claims(
-        self, rows: list[dict[str, Any]], *, capability: str
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        capability: str,
+        location: str | None = None,
     ) -> list[FacilityCandidate] | None:
         """Extract + score retrieved rows into candidates, or None if unavailable."""
         if not self.available():
             return None
-        return [self._assess_row(row, capability=capability) for row in rows if _text(row.get("unique_id"))]
+        return [
+            self._assess_row(row, capability=capability, location=location)
+            for row in rows
+            if _text(row.get("unique_id"))
+        ]
 
-    def _assess_row(self, row: dict[str, Any], *, capability: str) -> FacilityCandidate:
+    def _assess_row(
+        self, row: dict[str, Any], *, capability: str, location: str | None
+    ) -> FacilityCandidate:
         normalized = enrichment.normalize(row)
         match = _find_matching_entry(normalized, capability)
+        missing_fields = list(_missing_claim_groups(normalized))
 
         if match is None:
             status = evidence_status(None, None)
             source_spans: tuple[str, ...] = ()
         else:
             group_key, entry = match
-            entry_evidence = entry.get("evidence", [])
-            source_text = " ".join(entry_evidence)
-            cited_span = entry_evidence[0] if entry_evidence else None
+            receipts = _verified_receipts(row, group_key, entry)
             quality = normalized.get("data_quality", {})
             has_conflict = bool(quality.get("conflicting_claims"))
-            status = evidence_status(source_text or None, cited_span, has_conflict=has_conflict)
-            source_spans = _source_spans(group_key, entry) if status != EvidenceStatus.NOT_DOCUMENTED or has_conflict else ()
+            if receipts:
+                raw_field, source_text, cited_span = receipts[0]
+                status = evidence_status(
+                    source_text, cited_span, has_conflict=has_conflict
+                )
+                row_id = _text(row.get("unique_id"))
+                source_spans = tuple(
+                    f"{field} [{row_id}]: {span}" for field, _, span in receipts
+                )
+            else:
+                status = evidence_status(None, None)
+                source_spans = ()
+                if entry.get("evidence") and "evidence_receipt" not in missing_fields:
+                    missing_fields.append("evidence_receipt")
 
         return FacilityCandidate(
             facility_id=_text(row.get("unique_id")),
             display_name=_text(row.get("name")) or "Facility name not documented",
             capability=capability,
             evidence_status=status,
-            distance_km=None,  # Model B has no lat/lon — see TODO.md Blocker #1.
-            facility_type=None,  # not present in facilities_searchable.
-            missing_fields=_missing_claim_groups(normalized),
+            distance_km=_straight_line_distance_km(location, row),
+            facility_type=_facility_type(row),
+            missing_fields=tuple(missing_fields),
             source_spans=source_spans,
             enrichment=normalized,
         )

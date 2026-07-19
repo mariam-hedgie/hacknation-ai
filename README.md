@@ -1,4 +1,4 @@
-# Aven
+# aven
 
 **The right care route, with proof.**
 
@@ -40,22 +40,21 @@ cp .env.example .env
 Leave unavailable credentials as `TODO_...`; Aven will use safe local fallback
 behavior. Never commit `.env` or a Databricks personal access token.
 
-### Start the frontend
+### Start the React app
 
 ```bash
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 cd apps/referral-copilot
-streamlit run app.py
+npm install
+npm run build
+AVEN_AUTH_MODE=local_demo AVEN_ALLOW_LOCAL_DEMO=true python run_app.py
 ```
 
-Streamlit prints a local URL, normally **<http://localhost:8501>** — open it in
-your browser to view the app. The terminal running `streamlit run` stays
-attached to the server; press `Ctrl+C` there to stop it. If it prompts for an
-onboarding email on first run, press Enter to skip it, or start it with
-`streamlit run app.py --server.headless true` to suppress the prompt.
-
-Use `streamlit run app.py --server.port 8502` to run on a different port if
-8501 is already in use.
+Open **<http://localhost:8010>**. The production-shaped local server hosts both
+the built React UI and `/api/*` routes on the same origin. Local saved decisions
+are deliberately process-local and labelled `local demo`; only a deployed app
+with authenticated Lakebase may claim cross-session persistence. For live UI
+editing, run `npm --workspace frontend run dev` in a second terminal.
 
 ### Run validation
 
@@ -63,6 +62,9 @@ Use `streamlit run app.py --server.port 8502` to run on a different port if
 cd /path/to/hacknation-ai
 python3 -m unittest discover -s apps/referral-copilot/tests -v
 python3 -m compileall -q apps/referral-copilot
+npm test
+npm --prefix apps/referral-copilot run build
+npm --prefix apps/referral-copilot --workspace frontend run lint
 npm run check:elevenlabs
 ```
 
@@ -78,7 +80,7 @@ patient narrative or location—and search results do not alter the ranking.
 ### Configure OpenAI, ElevenLabs, and Tavily
 
 Put keys only in the repository-root `.env`; never paste them into the UI or
-commit them. Restart Streamlit after changing `.env`.
+commit them. Restart the API server after changing `.env`.
 
 ```dotenv
 OPENAI_API_KEY=your_real_openai_key
@@ -105,19 +107,16 @@ TAVILY_API_KEY=your_real_tavily_key
 
 ### Accounts and saved plans
 
-- **Guest:** no account; plans last only for the current Streamlit session.
-- **Local demo profile:** a development-only device profile for exercising the
-  saved-plan UI. It is not production authentication.
-- **Databricks workspace account:** the intended deployed identity, supplied by
-  the Databricks App environment and used to scope persisted plans when the
-  approved storage path is connected.
-- **Google sign-in:** not implemented. It requires a separate OAuth client,
-  verified redirect URLs, token validation, and an approved account-linking
-  decision; an OpenAI or ElevenLabs key does not enable it.
+- **Local demo:** no custom account. Saved decisions are process-local,
+  disposable, and visibly labelled as such.
+- **Databricks workspace account:** the deployed app uses Databricks OAuth proxy
+  identity. The server converts that identity to a pseudonymous owner ID and
+  scopes every Lakebase query to it; the browser cannot provide an owner ID.
+- **Google/Aven sign-in:** not implemented and not needed for the challenge.
 
-Open **My plans** in the top navigation at any time. Saved facilities retain
-the route summary and next action; past requests and blocked facilities appear
-on the same screen.
+Open **My plans** in the top navigation at any time. Durable records retain
+only the chosen option, next action, override, and optional note. Health intake,
+location, medication, voice, and transcript are not persisted.
 
 ### No-key journey and ambulance demo
 
@@ -151,32 +150,16 @@ LLM verdict:
    user's stated preferences;
 4. label missing information as unknown and show every ordering reason.
 
-## Deploy a public demo (Streamlit Community Cloud)
+## Deploy the submission
 
-GitHub Pages cannot host Aven — Pages serves static files only, and Aven is a
-Streamlit server that must hold credentials outside the browser. Streamlit
-Community Cloud is free and needs no code changes:
+The challenge submission must be the React + FastAPI build running as a live
+Databricks App in Free Edition. Give the Databricks owner the copy-paste
+[`deployment handoff`](docs/databricks-team-handoff.md). It covers the exact
+resource keys, corrected searchable-table pipeline, AI Search, secret-backed
+identity, Lakebase persistence, deployment, and live acceptance tests.
 
-1. Sign in at <https://share.streamlit.io> with the GitHub account that can read
-   this repository.
-2. Create an app pointing at this repo, branch `main`, entrypoint
-   `apps/referral-copilot/app.py`. Community Cloud reads
-   [`apps/referral-copilot/requirements.txt`](apps/referral-copilot/requirements.txt)
-   because it sits beside the entrypoint.
-3. Set the Python version to 3.13 or lower in **Advanced settings**. Community
-   Cloud does not offer the 3.14 used by some local checkouts.
-4. Optionally paste credentials into **Settings → Secrets** in TOML form
-   (`DATABRICKS_SERVER_HOSTNAME = "..."`). Streamlit exposes top-level secrets as
-   environment variables, which is exactly what `BackendConfig.from_env` reads,
-   so no code changes are needed.
-
-Deployed without secrets, the app runs its seeded demo path and labels every
-result as demo data. That is the honest fallback, not live challenge evidence —
-a public link is a UI demo unless Databricks secrets are configured.
-
-Community Cloud apps are public and sleep when idle. Never put a Databricks
-personal access token in its Secrets; use it for the demo path, and use
-Databricks Apps for the credentialed submission deploy.
+A local or third-party-hosted demo is useful for UI rehearsal but does not
+satisfy the official live Databricks, AI Search, or Lakebase gates.
 
 ## Integration modes
 
@@ -184,7 +167,7 @@ Databricks Apps for the credentialed submission deploy.
 |---|---|---|
 | Language structuring | OpenAI Responses API (`gpt-5.6-sol` by default) | Manual review form |
 | Facility evidence | Databricks SQL / governed tables | Seeded demo options labelled as demo |
-| Saved plans and feedback | Lakebase or approved Databricks write path | Current Streamlit session |
+| Saved plans and feedback | Authenticated owner-scoped Lakebase | Process-local demo store |
 | Maps/routes | Restricted Google Routes/Places key | No-key Google Maps link plus seeded comparison |
 | Voice | Explicitly enabled server-side ElevenLabs key | Typed multilingual input; voice described as future work |
 | Public source discovery | Server-side Tavily key | No external lookup |
@@ -213,8 +196,10 @@ sample rows, unsupported fields, and the deployed App URL. Replace the
 `TODO_...` table identifiers only after that contract is confirmed.
 
 Databricks deployment uses [`apps/referral-copilot/app.yaml`](apps/referral-copilot/app.yaml).
-The deployed App must run the exact tested Git commit and receive secrets and
-resources through Databricks Apps rather than source code.
+Its root npm build creates the React assets and `run_app.py` serves them with
+the FastAPI routes. Attach the Lakebase resource as `postgres` and the identity
+pepper secret as `identity-pepper`. The deployed App must run the exact tested
+Git commit and receive secrets/resources through Databricks Apps, never source.
 
 Run the lakehouse pipeline in [`databricks/README.md`](databricks/README.md).
 The repository implementation is not submission proof until every required
@@ -241,8 +226,7 @@ verified in the team's Free Edition workspace.
   schemas must be verified in the team's workspace.
 - Voice, routing, geocoding, and external evidence require their corresponding
   server-side credentials.
-- Google sign-in is not configured. The deployed product is designed to use
-  Databricks workspace OAuth; the local profile is a demo convenience, not a
-  production account or durable signup.
+- No custom sign-in is configured. The deployed product uses Databricks
+  workspace OAuth; local saved decisions are neither an account nor durable.
 - Symptom-first input may support safe care-setting navigation only; it is not
   a diagnosis or specialist-selection engine.

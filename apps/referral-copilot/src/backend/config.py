@@ -49,8 +49,11 @@ class BackendConfig:
     serving_endpoint: str = ""
     # Genie (autonomous, multi-step data tasks)
     genie_space_id: str = ""
-    # Lakebase (persist notes, overrides, shortlists, ratings, blocklist)
-    lakebase_url: str = ""
+    # Lakebase Autoscaling resource (managed Postgres coordinates)
+    lakebase_endpoint: str = ""
+    lakebase_host: str = ""
+    lakebase_database: str = ""
+    lakebase_user: str = ""
     # MLflow 3 (agent observability + trace cost tracking)
     mlflow_experiment: str = ""
 
@@ -67,7 +70,10 @@ class BackendConfig:
             vector_search_index=g("AVEN_VECTOR_SEARCH_INDEX"),
             serving_endpoint=g("AVEN_SERVING_ENDPOINT"),
             genie_space_id=g("AVEN_GENIE_SPACE_ID"),
-            lakebase_url=g("AVEN_LAKEBASE_URL"),
+            lakebase_endpoint=g("ENDPOINT_NAME"),
+            lakebase_host=g("PGHOST"),
+            lakebase_database=g("PGDATABASE"),
+            lakebase_user=g("PGUSER"),
             mlflow_experiment=g("AVEN_MLFLOW_EXPERIMENT"),
         )
 
@@ -89,13 +95,22 @@ class BackendConfig:
 
     @property
     def has_lakebase(self) -> bool:
-        return bool(self.lakebase_url)
+        return bool(
+            self.lakebase_endpoint
+            and self.lakebase_host
+            and self.lakebase_database
+            and self.lakebase_user
+        )
 
     @property
     def has_mlflow(self) -> bool:
         return bool(self.mlflow_experiment)
 
     def mode(self) -> str:
-        """"live" once the evidence pipeline (retrieval + serving) is wired,
-        otherwise "demo"."""
-        return "live" if (self.has_vector_search and self.has_agent) else "demo"
+        """"live" once authenticated evidence retrieval is configured.
+
+        The active validator is deterministic and does not call a model-serving
+        endpoint, so requiring one would incorrectly label real Vector Search
+        results as demo data.
+        """
+        return "live" if self.has_vector_search else "demo"

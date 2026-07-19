@@ -1,4 +1,12 @@
-command: ['streamlit', 'run', 'app.py']
+command: ['python', 'run_app.py']
 env:
   - name: AVEN_AUTH_MODE
     value: 'databricks'
+  - name: ENDPOINT_NAME
+    valueFrom: postgres
+  - name: AVEN_IDENTITY_PEPPER
+    valueFrom: identity-pepper
+  - name: AVEN_VECTOR_SEARCH_ENDPOINT
+    value: 'aven-facility-search'
+  - name: AVEN_VECTOR_SEARCH_INDEX
+    valueFrom: facility-evidence-index
