@@ -131,5 +131,29 @@ class TravelModeTests(unittest.TestCase):
             self.assertFalse(row["live_transit_supported"], row["mode"])
 
 
+class SimplifiedExperienceTests(unittest.TestCase):
+    def test_intake_uses_concrete_inputs_instead_of_hopping_select_sliders(self):
+        source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertNotIn("st.select_slider(", source)
+        self.assertIn("travel_budget_rupees", source)
+        self.assertIn("care_budget_rupees", source)
+        self.assertIn("max_distance_km", source)
+
+    def test_global_emergency_entry_and_contact_footer_exist(self):
+        source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertIn("Need urgent emergency help?", source)
+        self.assertIn("Contact us", source)
+
+    def test_decorative_emoji_are_not_used_in_feature_tiles(self):
+        app = _app_module()
+        self.assertTrue(all("icon" not in tile for tile in app.FEATURE_TILES))
+
+    def test_localized_brand_labels_are_available(self):
+        app = _app_module()
+        self.assertEqual(app.BRAND_LABELS["en"], "Aven")
+        self.assertIn("एवेन", app.BRAND_LABELS["hi"])
+        self.assertIn("एव्हन", app.BRAND_LABELS["mr"])
+
+
 if __name__ == "__main__":
     unittest.main()
