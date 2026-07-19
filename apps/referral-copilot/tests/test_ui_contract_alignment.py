@@ -194,13 +194,20 @@ class SimplifiedExperienceTests(unittest.TestCase):
         app = _app_module()
         self.assertEqual(
             app.TRAVEL_MODES,
-            ("walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane"),
+            ("walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane", "ambulance"),
         )
 
     def test_exact_conflicts_and_contact_candidates_are_visible(self):
         source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn("Exact details that disagree", source)
         self.assertIn("Phone candidate", source)
+
+    def test_deadline_and_complete_journey_actions_are_visible(self):
+        source = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertIn("Need to arrive by", source)
+        self.assertIn("Open route in Google Maps", source)
+        self.assertIn("Ambulance plan", source)
+        self.assertIn("External booking", source)
 
 
 if __name__ == "__main__":

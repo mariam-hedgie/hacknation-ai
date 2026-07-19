@@ -56,12 +56,12 @@ class ValidationTests(unittest.TestCase):
     def test_all_and_only_product_modes_are_whitelisted(self) -> None:
         self.assertEqual(
             SUPPORTED_TRAVEL_MODES,
-            ("walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane"),
+            ("walk", "bicycle", "motorbike", "car", "bus", "train", "taxi", "plane", "ambulance"),
         )
 
     def test_travel_mode_is_normalized_and_invalid_modes_are_rejected(self) -> None:
         self.assertEqual(validate_travel_mode(" Walk "), "walk")
-        for invalid in ("", "ambulance", "spaceship", None):
+        for invalid in ("", "spaceship", None):
             with self.subTest(invalid=invalid):
                 with self.assertRaises(ValueError):
                     validate_travel_mode(invalid)  # type: ignore[arg-type]
@@ -105,7 +105,7 @@ class CapabilityTruthLabelTests(unittest.TestCase):
                 self.assertFalse(capability.live_price_supported)
                 self.assertEqual(capability.provider_mode, provider_mode)
 
-        for mode in ("taxi", "plane"):
+        for mode in ("taxi", "plane", "ambulance"):
             with self.subTest(mode=mode):
                 capability = mode_capability(google, mode)
                 self.assertFalse(capability.route_supported)
@@ -134,7 +134,7 @@ class CapabilityTruthLabelTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 self.assertTrue(mode_capability(ors, mode).route_supported)
 
-        for mode in ("motorbike", "taxi", "bus", "train", "plane"):
+        for mode in ("motorbike", "taxi", "bus", "train", "plane", "ambulance"):
             with self.subTest(mode=mode):
                 capability = mode_capability(ors, mode)
                 self.assertFalse(capability.route_supported)

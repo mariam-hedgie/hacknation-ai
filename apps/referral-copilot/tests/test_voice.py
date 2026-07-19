@@ -10,7 +10,12 @@ from pathlib import Path
 APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
-from src.voice import MAX_AUDIO_BYTES, VoiceUnavailableError, transcribe_for_review  # noqa: E402
+from src.voice import (  # noqa: E402
+    MAX_AUDIO_BYTES,
+    VoiceUnavailableError,
+    configured_voice_client,
+    transcribe_for_review,
+)
 
 
 class RecordingSpeechClient:
@@ -45,6 +50,13 @@ class VoiceTests(unittest.TestCase):
         with self.assertRaises(VoiceUnavailableError):
             transcribe_for_review(b"x" * (MAX_AUDIO_BYTES + 1), client=client)
         self.assertEqual(client.calls, [])
+
+    def test_voice_is_hidden_until_explicitly_enabled(self) -> None:
+        self.assertIsNone(
+            configured_voice_client(
+                {"ELEVENLABS_API_KEY": "configured-but-unverified"}
+            )
+        )
 
 
 if __name__ == "__main__":

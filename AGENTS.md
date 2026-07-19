@@ -57,6 +57,51 @@ For UI implementation or a Claude design pass, use
 hierarchy, exact uncertainty wording, mobile/accessibility constraints, and
 thin-client boundary; UI code must not invent ranking or evidence claims.
 
+## Confirmed journey-planning workflow (do not reopen without new evidence)
+
+The product owner confirmed this workflow on 2026-07-19. Future agents should
+implement and refine it without asking the team to choose the same ordering
+again. Reopen it only when the official challenge rules, available data, or a
+provider constraint materially changes.
+
+1. Require a documented or officially corroborated match for the confirmed
+   capability before convenience can improve an option's position.
+2. Ask when the person needs to arrive. Prefer routes that can plausibly arrive
+   by that date/time, then compare evidence quality, journey time, sourced total
+   cost, and the person's public/private and accessibility preferences.
+3. Treat missing route, price, or service information as `unknown`, never as
+   unavailable and never as zero. Show the reasons for the ordering rather than
+   an unexplained model score.
+4. The hackathon fallback may use clearly labelled seeded journey durations and
+   costs. It must not call them live traffic, a fare quote, or current capacity.
+5. Provide a no-key Google Maps URL for every route. Real in-app routing may be
+   added later through a provider adapter; Google Routes is not required for the
+   golden path. Do not geocode a hospital name as a unique branch without a
+   verified address, coordinates, or user disambiguation.
+6. Defer live flight inventory. For a selected flight plan, provide clearly
+   labelled external airline/search links and state that schedules and prices
+   must be checked on the provider site. Do not process bookings or payments.
+7. Ambulance service is never assumed. When documented, show its literal
+   evidence and a verified hospital number if available. When missing or only a
+   Tavily candidate exists, tell the person to call the hospital and verify
+   ambulance availability. Show ambulance time/cost only when sourced or as an
+   explicit seeded demo estimate; `free` must also have a source.
+8. Emergencies bypass normal hospital ranking and expose the official India 112
+   action. Aven never silently dispatches an ambulance; calling is an explicit
+   user action.
+9. Voice is optional for the hackathon. Hide or disable it when the configured
+   provider is not verified, preserve fully usable typed multilingual intake,
+   and describe broader multilingual voice access as future work rather than a
+   live capability.
+
+For every recommendation, record the confirmed need, origin, required-arrival
+time, selected modes, provider/source retrieval times, evidence/unknowns,
+ordering reasons, and final user action. Feedback must cover incorrect facility
+or branch, unavailable service, wrong time/cost, and whether the trip was
+completed. The seeded evaluation set must include local road travel, motorbike,
+bus, train, flight, ambiguous branches, missing ambulance evidence, and an
+emergency interruption.
+
 ## What Hack-Nation appears to reward
 
 Build a working, focused AI product rather than a broad "AI assistant." The

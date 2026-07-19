@@ -209,6 +209,47 @@ class ShortlistTests(unittest.TestCase):
 
         self.assertEqual([option.candidate.facility_id for option in result.options], ["near"])
 
+    def test_arrival_feasibility_precedes_convenience_for_documented_matches(self) -> None:
+        request = IntakeRequest(
+            care_task="known_referral",
+            confirmed_capability="cardiology",
+            location="Patna",
+            urgency="soon",
+            travel_tolerance="medium",
+            budget_sensitivity="medium",
+            travel_budget_rupees=2_000,
+            required_arrival_date="2026-07-22",
+            user_confirmed=True,
+        )
+        candidates = [
+            FacilityCandidate(
+                facility_id="late",
+                display_name="Late Hospital",
+                capability="cardiology",
+                evidence_status=EvidenceStatus.EXTERNAL_CORROBORATED,
+                distance_km=4,
+                estimated_journey_minutes=20,
+                estimated_travel_cost_rupees=300,
+                arrival_feasible=False,
+            ),
+            FacilityCandidate(
+                facility_id="feasible",
+                display_name="Reachable Hospital",
+                capability="cardiology",
+                evidence_status=EvidenceStatus.DOCUMENTED,
+                distance_km=15,
+                estimated_journey_minutes=70,
+                estimated_travel_cost_rupees=1_200,
+                arrival_feasible=True,
+            ),
+        ]
+
+        result = build_shortlist(request, candidates)
+
+        self.assertEqual(result.options[0].candidate.facility_id, "feasible")
+        self.assertIn("can plausibly arrive by", " ".join(result.options[0].reasons))
+        self.assertIn("may miss", " ".join(result.options[1].cautions))
+
 
 if __name__ == "__main__":
     unittest.main()
